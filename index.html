@@ -4256,6 +4256,9 @@ setInterval(checkEOD, 5*60*1000);
 })();
 setTimeout(function(){ _backgroundSync=true; syncPull(false).finally(function(){ _backgroundSync=false; }); }, 1200);
 setInterval(function(){ _backgroundSync=true; syncPull(false).finally(function(){ _backgroundSync=false; }); }, 2*60*1000);
+// Auto-refresh the instant the app is opened / brought back into focus
+document.addEventListener('visibilitychange', function(){ if(!document.hidden && !_syncing){ _backgroundSync=true; syncPull(false).finally(function(){ _backgroundSync=false; }); } });
+window.addEventListener('focus', function(){ if(!_syncing){ _backgroundSync=true; syncPull(false).finally(function(){ _backgroundSync=false; }); } });
 </script>
 
 <script>
