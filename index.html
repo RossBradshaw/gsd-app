@@ -1036,7 +1036,7 @@ input[type=range]{accent-color:var(--maxa-yellow);width:100%}
     </div>
     <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
       <span style="font-size:11px;color:var(--text-muted)">Uploaded a new version?</span>
-      <button onclick="window.location.reload(true)" style="font-size:12px;padding:6px 14px;background:none;border:1.5px solid var(--border);border-radius:var(--radius-md);color:var(--text-secondary);cursor:pointer;font-family:inherit">↺ Reload app</button>
+      <button onclick="hardReloadApp()" style="font-size:12px;padding:6px 14px;background:none;border:1.5px solid var(--border);border-radius:var(--radius-md);color:var(--text-secondary);cursor:pointer;font-family:inherit">↺ Reload app</button>
     </div>
   </div>
 </div>
@@ -4284,11 +4284,20 @@ function installApp() {
     if(btn) btn.style.display = 'none';
   });
 }
+// Force-update: clear the offline cache + service worker, then reload fresh
+function hardReloadApp(){
+  try {
+    if('serviceWorker' in navigator){ navigator.serviceWorker.getRegistrations().then(function(rs){ rs.forEach(function(r){ r.unregister(); }); }); }
+    if(window.caches){ caches.keys().then(function(ks){ ks.forEach(function(k){ caches.delete(k); }); }); }
+  } catch(e){}
+  setTimeout(function(){ location.reload(); }, 500);
+}
+
 // Register service worker for offline use (Android/Windows)
 if('serviceWorker' in navigator) {
   window.addEventListener('load', function() {
     // Inline service worker via blob
-    var swCode = 'const CACHE="maxa-v1";self.addEventListener("install",e=>e.waitUntil(caches.open(CACHE)));self.addEventListener("fetch",e=>e.respondWith(caches.open(CACHE).then(c=>c.match(e.request).then(r=>r||fetch(e.request).then(nr=>{c.put(e.request,nr.clone());return nr;}).catch(()=>r)))));';
+    var swCode = 'const CACHE="maxa-v2";self.addEventListener("install",e=>self.skipWaiting());self.addEventListener("activate",e=>e.waitUntil(caches.keys().then(ks=>Promise.all(ks.map(k=>k!==CACHE&&caches.delete(k)))).then(()=>self.clients.claim())));self.addEventListener("fetch",e=>{var req=e.request;if(req.method!=="GET")return;var u=new URL(req.url);if(u.origin!==self.location.origin)return;e.respondWith(fetch(req).then(nr=>{var c=nr.clone();caches.open(CACHE).then(ca=>ca.put(req,c));return nr;}).catch(()=>caches.open(CACHE).then(ca=>ca.match(req))));});';
     var blob = new Blob([swCode], {type:'application/javascript'});
     var swUrl = URL.createObjectURL(blob);
     navigator.serviceWorker.register(swUrl).catch(function(){});
