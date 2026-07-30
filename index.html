@@ -495,6 +495,9 @@ textarea{resize:vertical;min-height:70px}
       <div class="sidebar-brand-name"><img src="data:image/png;base64,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" alt="Ross GSD" style="width:28px;height:28px;border-radius:50%;vertical-align:-7px;margin-right:4px;flex-shrink:0"> Ross Actions</div>
       <div class="sidebar-brand-sub" id="sb-date"></div>
     </div>
+    <button class="sidebar-nav-item" onclick="switchTab('day',this)" data-tab="day">
+      <span class="nav-icon">🗓</span> My Day
+    </button>
     <button class="sidebar-nav-item active" onclick="switchTab('all',this)" data-tab="all">
       <span class="nav-icon">☰</span> All actions <span class="sidebar-badge" id="sbb-all">0</span>
     </button>
@@ -581,6 +584,7 @@ textarea{resize:vertical;min-height:70px}
     </div>
     <!-- MOBILE TABS -->    <!-- MOBILE TABS -->
     <div class="tab-bar" id="tab-bar">
+      <button class="tab-btn" onclick="switchTab('day',this)" data-tab="day">🗓 My Day</button>
       <button class="tab-btn active" onclick="switchTab('all',this)" data-tab="all">All <span class="tab-badge" id="tbb-all">0</span></button>
       <button class="tab-btn" onclick="switchTab('today',this)" data-tab="today">Today <span class="tab-badge" id="tbb-today">0</span></button>
       <button class="tab-btn" onclick="switchTab('overdue',this)" data-tab="overdue">Overdue <span class="tab-badge red" id="tbb-overdue">0</span></button>
@@ -624,6 +628,9 @@ textarea{resize:vertical;min-height:70px}
   <!-- MORE MENU -->
   <div id="more-menu" style="display:none;position:fixed;bottom:calc(var(--safe-bottom) + 68px);left:0;right:0;background:var(--card);border-top:1px solid var(--border);z-index:25;padding:8px 0;box-shadow:0 -4px 20px rgba(0,0,0,0.1)">
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:0">
+      <button onclick="switchTab('day',document.querySelector('[data-tab=day]'));closeMoreMenu()" data-tab="day" class="more-menu-item">
+        <span style="font-size:20px">🗓</span><span>My Day</span>
+      </button>
       <button onclick="switchTab('dash',document.querySelector('[data-tab=dash]'));closeMoreMenu()" data-tab="dash" class="more-menu-item">
         <span style="font-size:20px">📊</span><span>Stats</span>
       </button>
@@ -1500,6 +1507,17 @@ function openDetail(id) {
       <div class="detail-meta-row"><span class="detail-lbl">Context</span><span class="detail-val">${esc(t.ctx||'—')}</span></div>
       ${(t.recurDays||t.recurMonthly) ? `<div class="detail-meta-row"><span class="detail-lbl">Recurring</span><span class="detail-val" style="color:#7A5800">${recurLabel(t)}</span></div>` : ''}
     </div>
+    <div style="border-top:1px solid var(--border);padding-top:12px;margin-top:12px">
+      <div style="font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.07em;margin-bottom:8px">Plan my day</div>
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+        <button onclick="toggleRock('${t.id}',event);openDetail('${t.id}')" style="background:${t.rock?'#FFF3CD':'var(--maxa-white)'};border:1.5px solid ${t.rock?'#F5B301':'var(--border)'};color:${t.rock?'#7A4500':'var(--text-primary)'};border-radius:8px;padding:7px 12px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit">${t.rock?'★ Rock':'☆ Make a rock'}</button>
+        <label style="font-size:13px;color:var(--text-muted)">Schedule today</label>
+        <select onchange="scheduleTaskAt('${t.id}',this.value)" style="padding:7px 8px;font-size:13px;border:1px solid var(--border);border-radius:8px;background:var(--maxa-white);color:var(--text-primary);font-family:inherit">
+          <option value="">— not scheduled —</option>
+          ${DAY_SLOTS().map(function(s){ return '<option value="'+s+'"'+((t.planDate===today()&&t.planSlot===s)?' selected':'')+'>'+slotLabel(s)+'</option>'; }).join('')}
+        </select>
+      </div>
+    </div>
     ${t.notes ? `<div style="margin-top:12px;padding:12px;background:var(--maxa-white);border-radius:var(--radius-md)"><div style="font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.07em;margin-bottom:6px">Notes</div><div style="font-size:13px;color:var(--text-primary);line-height:1.6">${esc(t.notes)}</div></div>` : ''}
     <details style="margin-top:12px">
       <summary style="font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.07em;cursor:pointer;user-select:none;list-style:none;display:flex;align-items:center;gap:5px;padding:2px 0">
@@ -1725,7 +1743,7 @@ function applyFilter() {
   closeOverlay('filter-overlay'); render();
 }
 function getFiltered() {
-  var list = tasks.slice();
+  var list = tasks.filter(function(t){ return t.type!=='meeting'; });
   var q = searchOpen ? (document.getElementById('search-input').value||'').toLowerCase().trim() : '';
   if(q) list = list.filter(function(t){ return (t.text+' '+t.notes+' '+t.assign).toLowerCase().includes(q); });
   if(filterCtx && filterCtx!=='All') list = list.filter(function(t){ return t.ctx===filterCtx; });
@@ -1776,6 +1794,8 @@ function cardHTML(t, idx) {
         <div class="task-title${t.done?' done':''}">${esc(t.text)}</div>
         <div class="task-pills">
           <span class="pill ${ctxClass(t.ctx)}">${esc(t.ctx)}</span>
+          ${t.rock?`<span class="pill" style="background:#FFF3CD;color:#7A4500">⭐</span>`:''}
+          ${(t.planDate===today()&&t.planSlot)?`<span class="pill pill-date">⏰ ${slotLabel(t.planSlot)}</span>`:''}
           ${t.due?`<span class="pill pill-date${over?' overdue':''}">${over?'⚠ ':''}${fmt(t.due)}</span>`:''}
           ${t.assign&&t.assign!=='Me'?`<span class="pill pill-assign" style="font-size:11px;color:var(--text-muted)">${esc(t.assign)}${t.isRecurring?' 🔁':''}</span>`:''}
           ${(!t.assign||t.assign==='Me')&&t.isRecurring?`<span class="pill" style="background:transparent;color:var(--text-muted);font-size:11px;padding-left:0">🔁</span>`:''}
@@ -1792,8 +1812,8 @@ function toggleMemberDropdown(id) {
 }
 
 function teamHTML() {
-  var open = tasks.filter(function(t){ return !t.done; });
-  var over = tasks.filter(function(t){ return !t.done && isOver(t.due); });
+  var open = tasks.filter(function(t){ return !t.done && t.type!=='meeting'; });
+  var over = tasks.filter(function(t){ return !t.done && t.type!=='meeting' && isOver(t.due); });
   var html = `<div class="stats-grid">
     <div class="stat-tile"><div class="stat-n">${open.length}</div><div class="stat-lbl">Open actions</div></div>
     <div class="stat-tile"><div class="stat-n${over.length?' red':''}">${over.length}</div><div class="stat-lbl">Overdue</div></div>
@@ -2183,6 +2203,127 @@ function ring(pct, size, thick, bgColor, label, sublabel) {
     <text x="${cx}" y="${cy - 4}" text-anchor="middle" font-size="${size < 80 ? 15 : 20}" font-weight="700" font-family="Onest,sans-serif" fill="${col}">${displayPct}</text>
     <text x="${cx}" y="${cy + 13}" text-anchor="middle" font-size="9" font-family="Onest,sans-serif" fill="#888B8D">${sublabel}</text>
   </svg>`;
+}
+
+/* ══════════════════════════════════════════
+   MY DAY — daily planner (rocks + meetings + time-blocking)
+══════════════════════════════════════════ */
+function DAY_START_H(){ return 5; }
+function DAY_END_H(){ return 18; }
+function DAY_SLOTS(){
+  var out=[];
+  for(var h=DAY_START_H(); h<=DAY_END_H(); h++){
+    for(var m=0; m<60; m+=15){
+      if(h===DAY_END_H() && m>0) break;
+      out.push((h<10?'0':'')+h+':'+(m<10?'0':'')+m);
+    }
+  }
+  return out;
+}
+function slotLabel(s){
+  var p=(s||'').split(':'); var h=parseInt(p[0],10); var m=p[1]||'00';
+  if(isNaN(h)) return s;
+  var ap=h>=12?'pm':'am'; var hh=h%12; if(hh===0) hh=12;
+  return hh+(m==='00'?'':(':'+m))+ap;
+}
+function floorSlot(hhmm){
+  var p=(hhmm||'').split(':'); var h=parseInt(p[0],10); var m=parseInt(p[1],10);
+  if(isNaN(h)||isNaN(m)) return hhmm;
+  m=Math.floor(m/15)*15;
+  return (h<10?'0':'')+h+':'+(m<10?'0':'')+m;
+}
+function dayNotesKey(){ return 'gsd_daynotes_'+today(); }
+function getDayNotes(){ try{ return lsGet(dayNotesKey())||''; }catch(e){ return ''; } }
+function saveDayNotes(v){ try{ lsSet(dayNotesKey(),v); }catch(e){} }
+
+function toggleRock(id,e){ if(e) e.stopPropagation(); var t=tasks.find(function(x){return x.id===id;}); if(!t) return; t.rock=!t.rock; t.modified=Date.now(); saveTasks(); render(true); }
+function scheduleTaskAt(id,slot){ var t=tasks.find(function(x){return x.id===id;}); if(!t) return; if(!slot){ t.planDate=''; t.planSlot=''; } else { t.planDate=today(); t.planSlot=slot; } t.modified=Date.now(); saveTasks(); render(true); }
+function unschedule(id,e){ if(e) e.stopPropagation(); scheduleTaskAt(id,''); }
+
+function todaysMeetings(){ return tasks.filter(function(t){ return t.type==='meeting' && t.planDate===today(); }).sort(function(a,b){ return (a.mtgStart||a.planSlot||'').localeCompare(b.mtgStart||b.planSlot||''); }); }
+function addMeetingFromForm(){
+  var st=document.getElementById('mtg-start'), en=document.getElementById('mtg-end'), ti=document.getElementById('mtg-title');
+  if(!ti || !ti.value.trim()){ toast('Add a meeting title first'); return; }
+  var start=st?st.value:'09:00', end=en?en.value:'';
+  var m={ id:'mtg_'+uid(), type:'meeting', text:ti.value.trim(), planDate:today(), planSlot:floorSlot(start), mtgStart:start, mtgEnd:end, done:false, ctx:'Meeting', assign:'Me', created:Date.now() };
+  tasks.push(m); saveTasks(); render(true);
+}
+function removeMeeting(id,e){ if(e) e.stopPropagation(); if(typeof recordDeleted==='function') recordDeleted(id); tasks=tasks.filter(function(t){return t.id!==id;}); saveTasks(); render(true); }
+
+function dayRockCardHTML(t){
+  return '<div class="task-card prio-high" style="border-left-color:#F5B301" data-id="'+t.id+'"><div class="task-row">'
+    +'<button class="check-ring'+(t.done?' checked':'')+'" onclick="toggleDoneInline(\''+t.id+'\',event)" aria-label="Mark done"><svg width="11" height="9" viewBox="0 0 11 9" fill="none" stroke="'+(t.done?'#131516':'#fff')+'" stroke-width="2.2"><polyline points="1 4 4 8 10 1"/></svg></button>'
+    +'<div class="task-body" onclick="openDetail(\''+t.id+'\')"><div class="task-title">'+esc(t.text)+'</div><div class="task-pills"><span class="pill '+ctxClass(t.ctx)+'">'+esc(t.ctx)+'</span>'+((t.planDate===today()&&t.planSlot)?'<span class="pill pill-date">⏰ '+slotLabel(t.planSlot)+'</span>':'')+(t.due?'<span class="pill pill-date'+(isOver(t.due)?' overdue':'')+'">'+(isOver(t.due)?'⚠ ':'')+fmt(t.due)+'</span>':'')+'</div></div>'
+    +'<button onclick="toggleRock(\''+t.id+'\',event)" title="Remove from rocks" style="background:none;border:none;cursor:pointer;color:#F5B301;font-size:17px;padding:0 8px;align-self:center">★</button>'
+    +'</div></div>';
+}
+
+function dayViewHTML(){
+  var d=new Date();
+  var dateStr=d.toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long'});
+  var rocks=tasks.filter(function(t){ return t.rock && !t.done; });
+  var meetings=todaysMeetings();
+  var slots=DAY_SLOTS();
+  var bySlot={};
+  slots.forEach(function(s){ bySlot[s]={m:[],t:[]}; });
+  meetings.forEach(function(m){ if(bySlot[m.planSlot]) bySlot[m.planSlot].m.push(m); });
+  tasks.forEach(function(t){ if(t.type!=='meeting' && !t.done && t.planDate===today() && t.planSlot && bySlot[t.planSlot]) bySlot[t.planSlot].t.push(t); });
+
+  var css='<style>'
+   +'.day-wrap{padding-bottom:32px}'
+   +'.day-date{font-size:19px;font-weight:700;color:var(--text-primary);margin:2px 0 6px}'
+   +'.day-mtgform{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:2px 0 10px}'
+   +'.day-mtgform input,.day-mtgform select{padding:7px 8px;font-size:13px;border:1px solid var(--border);border-radius:8px;background:var(--maxa-white);color:var(--text-primary);font-family:inherit}'
+   +'.day-mtgform .mt-title{flex:1;min-width:130px}'
+   +'.day-add-btn{background:var(--maxa-yellow);color:#131516;border:none;border-radius:8px;padding:8px 14px;font-weight:700;font-size:13px;cursor:pointer;font-family:inherit}'
+   +'.day-grid{border:1px solid var(--border);border-radius:12px;overflow:hidden;background:var(--card)}'
+   +'.day-slot{display:flex;border-bottom:1px solid var(--border);min-height:28px}'
+   +'.day-slot:last-child{border-bottom:none}'
+   +'.day-time{flex:0 0 58px;font-size:11px;color:var(--text-muted);padding:5px 8px;text-align:right;border-right:1px solid var(--border);background:var(--bg)}'
+   +'.day-cell{flex:1;padding:3px 6px;display:flex;flex-direction:column;gap:3px;justify-content:center}'
+   +'.day-mtg{background:#E7F0FF;color:#1E3A8A;border-radius:6px;padding:4px 8px;font-size:12px;font-weight:600;display:flex;align-items:center;gap:6px}'
+   +'.day-mtg .tm{font-weight:400;color:#3B5BA5;font-size:11px}'
+   +'.day-task{background:var(--maxa-yellow-lt);color:#5A4200;border-radius:6px;padding:4px 8px;font-size:12px;font-weight:600;display:flex;align-items:center;gap:6px;cursor:pointer}'
+   +'.day-chip-x{margin-left:auto;background:none;border:none;color:inherit;opacity:0.5;cursor:pointer;font-size:13px;padding:0 2px;flex-shrink:0}'
+   +'.day-notes{width:100%;min-height:90px;margin-top:4px;padding:10px;font-size:13px;border:1px solid var(--border);border-radius:10px;background:var(--card);color:var(--text-primary);font-family:inherit;resize:vertical;box-sizing:border-box}'
+   +'</style>';
+
+  var html=css+'<div class="day-wrap">';
+  html+='<div class="day-date">'+dateStr+'</div>';
+
+  html+='<div class="section-hd">⭐ Key rocks — today\'s must-dos</div>';
+  if(rocks.length) rocks.forEach(function(t){ html+=dayRockCardHTML(t); });
+  else html+='<div style="font-size:13px;color:var(--text-muted);padding:6px 2px 10px">No rocks yet. Open any task and tap the ⭐ to mark it a top priority for today.</div>';
+
+  html+='<div class="section-hd">📅 Meetings</div>';
+  html+='<div class="day-mtgform">'
+    +'<select id="mtg-start" aria-label="Meeting start">'+slots.map(function(s){return '<option value="'+s+'"'+(s==='09:00'?' selected':'')+'>'+slotLabel(s)+'</option>';}).join('')+'</select>'
+    +'<span style="color:var(--text-muted);font-size:12px">to</span>'
+    +'<select id="mtg-end" aria-label="Meeting end">'+slots.map(function(s){return '<option value="'+s+'"'+(s==='09:30'?' selected':'')+'>'+slotLabel(s)+'</option>';}).join('')+'</select>'
+    +'<input class="mt-title" id="mtg-title" type="text" placeholder="Meeting title" autocomplete="off">'
+    +'<button class="day-add-btn" onclick="addMeetingFromForm()">Add</button>'
+    +'</div>';
+  if(meetings.length){
+    meetings.forEach(function(m){ html+='<div class="day-mtg" style="margin:0 0 4px">'+esc(m.text)+' <span class="tm">'+slotLabel(m.mtgStart||m.planSlot)+(m.mtgEnd?'–'+slotLabel(m.mtgEnd):'')+'</span><button class="day-chip-x" onclick="removeMeeting(\''+m.id+'\',event)">✕</button></div>'; });
+  } else html+='<div style="font-size:12px;color:var(--text-muted);padding:2px 2px 8px">No meetings added for today yet.</div>';
+
+  html+='<div class="section-hd">🕒 Schedule your day</div>';
+  html+='<div style="font-size:12px;color:var(--text-muted);margin:-4px 0 8px">Open a task and use "Schedule for today" to drop it into a time slot below.</div>';
+  html+='<div class="day-grid">';
+  slots.forEach(function(s){
+    var cell=bySlot[s];
+    html+='<div class="day-slot"><div class="day-time">'+slotLabel(s)+'</div><div class="day-cell">';
+    cell.m.forEach(function(m){ html+='<div class="day-mtg">'+esc(m.text)+' <span class="tm">'+slotLabel(m.mtgStart||m.planSlot)+(m.mtgEnd?'–'+slotLabel(m.mtgEnd):'')+'</span></div>'; });
+    cell.t.forEach(function(t){ html+='<div class="day-task" onclick="openDetail(\''+t.id+'\')">'+esc(t.text)+'<button class="day-chip-x" onclick="unschedule(\''+t.id+'\',event)">✕</button></div>'; });
+    html+='</div></div>';
+  });
+  html+='</div>';
+
+  html+='<div class="section-hd">📝 Notes</div>';
+  html+='<textarea class="day-notes" oninput="saveDayNotes(this.value)" placeholder="Jot anything for today…">'+esc(getDayNotes())+'</textarea>';
+
+  html+='</div>';
+  return html;
 }
 
 function dashboardHTML() {
@@ -3018,7 +3159,7 @@ function buildFilterCtxButtons() {
 function switchTab(tab, el) {
   currentTab = tab;
   document.querySelectorAll('[data-tab]').forEach(function(b){ b.classList.toggle('active', b.dataset.tab===tab); });
-  var titles = {all:'All actions',today:'Today',overdue:'Overdue',team:'Team follow-up',done:'Completed',dash:'Performance'};
+  var titles = {all:'All actions',today:'Today',overdue:'Overdue',team:'Team follow-up',done:'Completed',dash:'Performance',day:'My Day'};
   var ttEl=document.getElementById('topbar-title'); if(ttEl) ttEl.textContent=titles[tab]||'Ross Actions';
   render();
 }
@@ -3044,11 +3185,13 @@ function render(force) {
 
   var html='';
   var quoteHtml = currentTab==='dash' ? '' : '';  // quote now on dashboard only
-  var morningHtml = morningBriefingHTML();
-  var setupHtml = (currentTab==='all'||currentTab==='today') ? setupBannerHTML() : '';
+  var morningHtml = currentTab==='day' ? '' : morningBriefingHTML();
+  var setupHtml = '';
 
   if(currentTab==='dash') {
     html = dashboardHTML();
+  } else if(currentTab==='day') {
+    html = dayViewHTML();
   } else if(currentTab==='team') {
     html = teamHTML();
   } else if(currentTab==='done') {
