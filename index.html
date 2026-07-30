@@ -3703,24 +3703,24 @@ async function syncPush(showToast) {
       }
     }
 
-    // Delete from Supabase any tasks that no longer exist locally
-    // Fetch current Supabase IDs and remove any not in local tasks
+    // Only delete remote tasks that THIS device explicitly deleted (tombstoned).
+    // Never delete a remote task just because it isn't in this device's local list —
+    // it may have been added by the email-to-task script or another device, and must be kept.
     try {
+      var deletedIds = getDeletedIds();
       var remoteRows = await supaFetch('GET', 'tasks');
       if(Array.isArray(remoteRows) && remoteRows.length > 0) {
         var localIds = {};
         tasks.forEach(function(t){ localIds[t.id] = true; });
-        var toDelete = remoteRows.filter(function(r){ return !localIds[r.id]; });
+        var toDelete = remoteRows.filter(function(r){ return String(r.id).indexOf('__')!==0 && !localIds[r.id] && deletedIds[r.id]; });
         for(var j=0; j<toDelete.length; j++) {
           await supaFetch('DELETE', 'tasks', null, toDelete[j].id);
         }
-        if(toDelete.length > 0) console.log('Deleted', toDelete.length, 'removed tasks from Supabase');
+        if(toDelete.length > 0) console.log('Deleted', toDelete.length, 'tombstoned tasks from Supabase');
 
-        // Also push our tombstone so other devices know what was deleted
-        var deletedIds = getDeletedIds();
+        // Push our tombstone so other devices know what was deliberately deleted
         var deletedKeys = Object.keys(deletedIds);
         if(deletedKeys.length > 0) {
-          // Store tombstone as a special tasks row with id='__deleted__'
           var tombstoneRow = {id:'__deleted__', data:{ids: deletedIds}, updated_at: new Date().toISOString()};
           await supaFetch('POST', 'tasks', [tombstoneRow]);
         }
