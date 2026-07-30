@@ -496,7 +496,7 @@ textarea{resize:vertical;min-height:70px}
       <div class="sidebar-brand-sub" id="sb-date"></div>
     </div>
     <button class="sidebar-nav-item" onclick="switchTab('day',this)" data-tab="day">
-      <span class="nav-icon">🗓</span> My Day
+      <span class="nav-icon">🗓</span> My Week
     </button>
     <button class="sidebar-nav-item active" onclick="switchTab('all',this)" data-tab="all">
       <span class="nav-icon">☰</span> All actions <span class="sidebar-badge" id="sbb-all">0</span>
@@ -584,7 +584,7 @@ textarea{resize:vertical;min-height:70px}
     </div>
     <!-- MOBILE TABS -->    <!-- MOBILE TABS -->
     <div class="tab-bar" id="tab-bar">
-      <button class="tab-btn" onclick="switchTab('day',this)" data-tab="day">🗓 My Day</button>
+      <button class="tab-btn" onclick="switchTab('day',this)" data-tab="day">🗓 My Week</button>
       <button class="tab-btn active" onclick="switchTab('all',this)" data-tab="all">All <span class="tab-badge" id="tbb-all">0</span></button>
       <button class="tab-btn" onclick="switchTab('today',this)" data-tab="today">Today <span class="tab-badge" id="tbb-today">0</span></button>
       <button class="tab-btn" onclick="switchTab('overdue',this)" data-tab="overdue">Overdue <span class="tab-badge red" id="tbb-overdue">0</span></button>
@@ -629,7 +629,7 @@ textarea{resize:vertical;min-height:70px}
   <div id="more-menu" style="display:none;position:fixed;bottom:calc(var(--safe-bottom) + 68px);left:0;right:0;background:var(--card);border-top:1px solid var(--border);z-index:25;padding:8px 0;box-shadow:0 -4px 20px rgba(0,0,0,0.1)">
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:0">
       <button onclick="switchTab('day',document.querySelector('[data-tab=day]'));closeMoreMenu()" data-tab="day" class="more-menu-item">
-        <span style="font-size:20px">🗓</span><span>My Day</span>
+        <span style="font-size:20px">🗓</span><span>My Week</span>
       </button>
       <button onclick="switchTab('dash',document.querySelector('[data-tab=dash]'));closeMoreMenu()" data-tab="dash" class="more-menu-item">
         <span style="font-size:20px">📊</span><span>Stats</span>
@@ -1508,13 +1508,18 @@ function openDetail(id) {
       ${(t.recurDays||t.recurMonthly) ? `<div class="detail-meta-row"><span class="detail-lbl">Recurring</span><span class="detail-val" style="color:#7A5800">${recurLabel(t)}</span></div>` : ''}
     </div>
     <div style="border-top:1px solid var(--border);padding-top:12px;margin-top:12px">
-      <div style="font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.07em;margin-bottom:8px">Plan my day</div>
-      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+      <div style="font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.07em;margin-bottom:8px">Plan my week</div>
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+        <label style="font-size:13px;color:var(--text-muted)">Day</label>
+        <select onchange="setTaskPlanDate('${t.id}',this.value)" style="padding:7px 8px;font-size:13px;border:1px solid var(--border);border-radius:8px;background:var(--maxa-white);color:var(--text-primary);font-family:inherit">
+          <option value="">— not planned —</option>
+          ${workWeek(today()).concat(workWeek(addDays(today(),7))).map(function(d){ return '<option value="'+d+'"'+(t.planDate===d?' selected':'')+'>'+parseDay(d).toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short'})+'</option>'; }).join('')}
+        </select>
         <button onclick="toggleRock('${t.id}',event);openDetail('${t.id}')" style="background:${t.rock?'#FFF3CD':'var(--maxa-white)'};border:1.5px solid ${t.rock?'#F5B301':'var(--border)'};color:${t.rock?'#7A4500':'var(--text-primary)'};border-radius:8px;padding:7px 12px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit">${t.rock?'★ Rock':'☆ Make a rock'}</button>
-        <label style="font-size:13px;color:var(--text-muted)">Schedule today</label>
-        <select onchange="scheduleTaskAt('${t.id}',this.value)" style="padding:7px 8px;font-size:13px;border:1px solid var(--border);border-radius:8px;background:var(--maxa-white);color:var(--text-primary);font-family:inherit">
-          <option value="">— not scheduled —</option>
-          ${DAY_SLOTS().map(function(s){ return '<option value="'+s+'"'+((t.planDate===today()&&t.planSlot===s)?' selected':'')+'>'+slotLabel(s)+'</option>'; }).join('')}
+        <label style="font-size:13px;color:var(--text-muted)">Time</label>
+        <select onchange="setTaskPlanSlot('${t.id}',this.value)" style="padding:7px 8px;font-size:13px;border:1px solid var(--border);border-radius:8px;background:var(--maxa-white);color:var(--text-primary);font-family:inherit">
+          <option value="">— no time —</option>
+          ${DAY_SLOTS().map(function(s){ return '<option value="'+s+'"'+(t.planSlot===s?' selected':'')+'>'+slotLabel(s)+'</option>'; }).join('')}
         </select>
       </div>
     </div>
@@ -1795,7 +1800,7 @@ function cardHTML(t, idx) {
         <div class="task-pills">
           <span class="pill ${ctxClass(t.ctx)}">${esc(t.ctx)}</span>
           ${t.rock?`<span class="pill" style="background:#FFF3CD;color:#7A4500">⭐</span>`:''}
-          ${(t.planDate===today()&&t.planSlot)?`<span class="pill pill-date">⏰ ${slotLabel(t.planSlot)}</span>`:''}
+          ${t.planDate?`<span class="pill pill-date">🗓 ${dayLabelShort(t.planDate)}${t.planSlot?' '+slotLabel(t.planSlot):''}</span>`:''}
           ${t.due?`<span class="pill pill-date${over?' overdue':''}">${over?'⚠ ':''}${fmt(t.due)}</span>`:''}
           ${t.assign&&t.assign!=='Me'?`<span class="pill pill-assign" style="font-size:11px;color:var(--text-muted)">${esc(t.assign)}${t.isRecurring?' 🔁':''}</span>`:''}
           ${(!t.assign||t.assign==='Me')&&t.isRecurring?`<span class="pill" style="background:transparent;color:var(--text-muted);font-size:11px;padding-left:0">🔁</span>`:''}
@@ -2232,46 +2237,99 @@ function floorSlot(hhmm){
   m=Math.floor(m/15)*15;
   return (h<10?'0':'')+h+':'+(m<10?'0':'')+m;
 }
-function dayNotesKey(){ return 'gsd_daynotes_'+today(); }
-function getDayNotes(){ try{ return lsGet(dayNotesKey())||''; }catch(e){ return ''; } }
-function saveDayNotes(v){ try{ lsSet(dayNotesKey(),v); }catch(e){} }
 
-function toggleRock(id,e){ if(e) e.stopPropagation(); var t=tasks.find(function(x){return x.id===id;}); if(!t) return; t.rock=!t.rock; t.modified=Date.now(); saveTasks(); render(true); }
-function scheduleTaskAt(id,slot){ var t=tasks.find(function(x){return x.id===id;}); if(!t) return; if(!slot){ t.planDate=''; t.planSlot=''; } else { t.planDate=today(); t.planSlot=slot; } t.modified=Date.now(); saveTasks(); render(true); }
-function unschedule(id,e){ if(e) e.stopPropagation(); scheduleTaskAt(id,''); }
+/* ---- week / day navigation ---- */
+var planSelectedDay = null;
+function isoDay(d){ var p=function(n){return (n<10?'0':'')+n;}; return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate()); }
+function parseDay(s){ var a=(s||today()).split('-'); return new Date(parseInt(a[0],10), parseInt(a[1],10)-1, parseInt(a[2],10)); }
+function addDays(s,n){ var d=parseDay(s); d.setDate(d.getDate()+n); return isoDay(d); }
+function mondayOf(s){ var d=parseDay(s); var dow=d.getDay(); var off=(dow===0?-6:1-dow); d.setDate(d.getDate()+off); return isoDay(d); }
+function workWeek(s){ var mon=mondayOf(s); var out=[]; for(var i=0;i<5;i++) out.push(addDays(mon,i)); return out; }
+function defaultPlanDay(){ var dow=parseDay(today()).getDay(); if(dow===6) return addDays(today(),2); if(dow===0) return addDays(today(),1); return today(); }
+function planDay(){ if(!planSelectedDay) planSelectedDay=defaultPlanDay(); return planSelectedDay; }
+function setPlanDay(d){ planSelectedDay=d; render(true); }
+function shiftWeek(n){ planSelectedDay=addDays(planDay(), n*7); render(true); }
+function dayLabelShort(s){ return parseDay(s).toLocaleDateString('en-GB',{weekday:'short',day:'numeric'}); }
+function dayLabelLong(s){ return parseDay(s).toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long'}); }
 
-function todaysMeetings(){ return tasks.filter(function(t){ return t.type==='meeting' && t.planDate===today(); }).sort(function(a,b){ return (a.mtgStart||a.planSlot||'').localeCompare(b.mtgStart||b.planSlot||''); }); }
+/* ---- notes (per day) ---- */
+function dayNotesKey(d){ return 'gsd_daynotes_'+(d||planDay()); }
+function getDayNotes(d){ try{ return lsGet(dayNotesKey(d))||''; }catch(e){ return ''; } }
+function saveDayNotes(v){ try{ lsSet(dayNotesKey(planDay()),v); }catch(e){} }
+
+/* ---- planning data on tasks: planDate, planSlot, rock (legacy rock:true w/o planDate => today) ---- */
+function rocksForDay(day){ return tasks.filter(function(t){ return t.type!=='meeting' && t.rock && !t.done && (t.planDate===day || (!t.planDate && day===today())); }); }
+function meetingsForDay(day){ return tasks.filter(function(t){ return t.type==='meeting' && t.planDate===day; }).sort(function(a,b){ return (a.mtgStart||a.planSlot||'').localeCompare(b.mtgStart||b.planSlot||''); }); }
+function scheduledForDay(day){ return tasks.filter(function(t){ return t.type!=='meeting' && !t.done && t.planDate===day && t.planSlot; }); }
+
+function toggleRock(id,e){ if(e) e.stopPropagation(); var t=tasks.find(function(x){return x.id===id;}); if(!t) return; t.rock=!t.rock; if(t.rock && !t.planDate) t.planDate=planDay(); t.modified=Date.now(); saveTasks(); render(true); }
+function setTaskPlanDate(id,dstr){ var t=tasks.find(function(x){return x.id===id;}); if(!t) return; t.planDate=dstr; if(!dstr){ t.rock=false; t.planSlot=''; } t.modified=Date.now(); saveTasks(); render(true); }
+function setTaskPlanSlot(id,slot){ var t=tasks.find(function(x){return x.id===id;}); if(!t) return; t.planSlot=slot; if(slot && !t.planDate) t.planDate=planDay(); t.modified=Date.now(); saveTasks(); render(true); }
+function scheduleTaskAt(id,slot){ setTaskPlanSlot(id,slot); }
+function unschedule(id,e){ if(e) e.stopPropagation(); setTaskPlanSlot(id,''); }
+
+function todaysMeetings(){ return meetingsForDay(planDay()); }
 function addMeetingFromForm(){
   var st=document.getElementById('mtg-start'), en=document.getElementById('mtg-end'), ti=document.getElementById('mtg-title');
   if(!ti || !ti.value.trim()){ toast('Add a meeting title first'); return; }
   var start=st?st.value:'09:00', end=en?en.value:'';
-  var m={ id:'mtg_'+uid(), type:'meeting', text:ti.value.trim(), planDate:today(), planSlot:floorSlot(start), mtgStart:start, mtgEnd:end, done:false, ctx:'Meeting', assign:'Me', created:Date.now() };
+  var m={ id:'mtg_'+uid(), type:'meeting', text:ti.value.trim(), planDate:planDay(), planSlot:floorSlot(start), mtgStart:start, mtgEnd:end, done:false, ctx:'Meeting', assign:'Me', created:Date.now() };
   tasks.push(m); saveTasks(); render(true);
 }
 function removeMeeting(id,e){ if(e) e.stopPropagation(); if(typeof recordDeleted==='function') recordDeleted(id); tasks=tasks.filter(function(t){return t.id!==id;}); saveTasks(); render(true); }
 
 function dayRockCardHTML(t){
+  var pslot=(t.planSlot?'<span class="pill pill-date">⏰ '+slotLabel(t.planSlot)+'</span>':'');
   return '<div class="task-card prio-high" style="border-left-color:#F5B301" data-id="'+t.id+'"><div class="task-row">'
     +'<button class="check-ring'+(t.done?' checked':'')+'" onclick="toggleDoneInline(\''+t.id+'\',event)" aria-label="Mark done"><svg width="11" height="9" viewBox="0 0 11 9" fill="none" stroke="'+(t.done?'#131516':'#fff')+'" stroke-width="2.2"><polyline points="1 4 4 8 10 1"/></svg></button>'
-    +'<div class="task-body" onclick="openDetail(\''+t.id+'\')"><div class="task-title">'+esc(t.text)+'</div><div class="task-pills"><span class="pill '+ctxClass(t.ctx)+'">'+esc(t.ctx)+'</span>'+((t.planDate===today()&&t.planSlot)?'<span class="pill pill-date">⏰ '+slotLabel(t.planSlot)+'</span>':'')+(t.due?'<span class="pill pill-date'+(isOver(t.due)?' overdue':'')+'">'+(isOver(t.due)?'⚠ ':'')+fmt(t.due)+'</span>':'')+'</div></div>'
+    +'<div class="task-body" onclick="openDetail(\''+t.id+'\')"><div class="task-title">'+esc(t.text)+'</div><div class="task-pills"><span class="pill '+ctxClass(t.ctx)+'">'+esc(t.ctx)+'</span>'+pslot+(t.due?'<span class="pill pill-date'+(isOver(t.due)?' overdue':'')+'">'+(isOver(t.due)?'⚠ ':'')+fmt(t.due)+'</span>':'')+'</div></div>'
     +'<button onclick="toggleRock(\''+t.id+'\',event)" title="Remove from rocks" style="background:none;border:none;cursor:pointer;color:#F5B301;font-size:17px;padding:0 8px;align-self:center">★</button>'
     +'</div></div>';
 }
 
+function weekStripHTML(){
+  var wk=workWeek(planDay()); var sel=planDay();
+  var chips=wk.map(function(d){
+    var cnt=rocksForDay(d).length+meetingsForDay(d).length+scheduledForDay(d).length;
+    var dd=parseDay(d);
+    var isToday=(d===today());
+    return '<button onclick="setPlanDay(\''+d+'\')" class="wk-chip'+(d===sel?' active':'')+(isToday?' istoday':'')+'">'
+      +'<span class="wk-dow">'+dd.toLocaleDateString('en-GB',{weekday:'short'})+'</span>'
+      +'<span class="wk-num">'+dd.getDate()+'</span>'
+      +(cnt?'<span class="wk-dot">'+cnt+'</span>':'<span class="wk-dot empty"></span>')
+      +'</button>';
+  }).join('');
+  var mon=wk[0], fri=wk[4];
+  var range=parseDay(mon).toLocaleDateString('en-GB',{day:'numeric',month:'short'})+' – '+parseDay(fri).toLocaleDateString('en-GB',{day:'numeric',month:'short'});
+  return '<div class="wk-nav"><button class="wk-arrow" onclick="shiftWeek(-1)">‹</button><span class="wk-range">'+range+'</span><button class="wk-arrow" onclick="shiftWeek(1)">›</button></div>'
+    +'<div class="wk-strip">'+chips+'</div>';
+}
+
 function dayViewHTML(){
-  var d=new Date();
-  var dateStr=d.toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long'});
-  var rocks=tasks.filter(function(t){ return t.rock && !t.done; });
-  var meetings=todaysMeetings();
+  var day=planDay();
+  var dateStr=dayLabelLong(day);
+  var rocks=rocksForDay(day);
+  var meetings=meetingsForDay(day);
   var slots=DAY_SLOTS();
   var bySlot={};
   slots.forEach(function(s){ bySlot[s]={m:[],t:[]}; });
   meetings.forEach(function(m){ if(bySlot[m.planSlot]) bySlot[m.planSlot].m.push(m); });
-  tasks.forEach(function(t){ if(t.type!=='meeting' && !t.done && t.planDate===today() && t.planSlot && bySlot[t.planSlot]) bySlot[t.planSlot].t.push(t); });
+  scheduledForDay(day).forEach(function(t){ if(bySlot[t.planSlot]) bySlot[t.planSlot].t.push(t); });
 
   var css='<style>'
    +'.day-wrap{padding-bottom:32px}'
-   +'.day-date{font-size:19px;font-weight:700;color:var(--text-primary);margin:2px 0 6px}'
+   +'.wk-nav{display:flex;align-items:center;justify-content:space-between;margin:2px 0 8px}'
+   +'.wk-range{font-size:13px;font-weight:600;color:var(--text-muted)}'
+   +'.wk-arrow{background:var(--card);border:1px solid var(--border);color:var(--text-primary);width:30px;height:30px;border-radius:8px;font-size:16px;cursor:pointer;line-height:1}'
+   +'.wk-strip{display:flex;gap:6px;margin-bottom:14px}'
+   +'.wk-chip{flex:1;display:flex;flex-direction:column;align-items:center;gap:1px;padding:8px 2px 6px;border:1.5px solid var(--border);border-radius:10px;background:var(--card);cursor:pointer;font-family:inherit;position:relative}'
+   +'.wk-chip.active{border-color:var(--maxa-yellow);background:var(--maxa-yellow-lt)}'
+   +'.wk-chip .wk-dow{font-size:10px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.03em}'
+   +'.wk-chip .wk-num{font-size:17px;font-weight:700;color:var(--text-primary)}'
+   +'.wk-chip.istoday .wk-num{color:#B8860B}'
+   +'.wk-chip .wk-dot{font-size:9px;font-weight:700;min-width:15px;height:15px;line-height:15px;border-radius:9px;background:var(--maxa-yellow);color:#131516;margin-top:2px}'
+   +'.wk-chip .wk-dot.empty{background:transparent;color:transparent}'
+   +'.day-date{font-size:18px;font-weight:700;color:var(--text-primary);margin:0 0 6px}'
    +'.day-mtgform{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:2px 0 10px}'
    +'.day-mtgform input,.day-mtgform select{padding:7px 8px;font-size:13px;border:1px solid var(--border);border-radius:8px;background:var(--maxa-white);color:var(--text-primary);font-family:inherit}'
    +'.day-mtgform .mt-title{flex:1;min-width:130px}'
@@ -2285,15 +2343,16 @@ function dayViewHTML(){
    +'.day-mtg .tm{font-weight:400;color:#3B5BA5;font-size:11px}'
    +'.day-task{background:var(--maxa-yellow-lt);color:#5A4200;border-radius:6px;padding:4px 8px;font-size:12px;font-weight:600;display:flex;align-items:center;gap:6px;cursor:pointer}'
    +'.day-chip-x{margin-left:auto;background:none;border:none;color:inherit;opacity:0.5;cursor:pointer;font-size:13px;padding:0 2px;flex-shrink:0}'
-   +'.day-notes{width:100%;min-height:90px;margin-top:4px;padding:10px;font-size:13px;border:1px solid var(--border);border-radius:10px;background:var(--card);color:var(--text-primary);font-family:inherit;resize:vertical;box-sizing:border-box}'
+   +'.day-notes{width:100%;min-height:88px;margin-top:4px;padding:10px;font-size:13px;border:1px solid var(--border);border-radius:10px;background:var(--card);color:var(--text-primary);font-family:inherit;resize:vertical;box-sizing:border-box}'
    +'</style>';
 
   var html=css+'<div class="day-wrap">';
+  html+=weekStripHTML();
   html+='<div class="day-date">'+dateStr+'</div>';
 
-  html+='<div class="section-hd">⭐ Key rocks — today\'s must-dos</div>';
+  html+='<div class="section-hd">⭐ Key rocks — must-dos</div>';
   if(rocks.length) rocks.forEach(function(t){ html+=dayRockCardHTML(t); });
-  else html+='<div style="font-size:13px;color:var(--text-muted);padding:6px 2px 10px">No rocks yet. Open any task and tap the ⭐ to mark it a top priority for today.</div>';
+  else html+='<div style="font-size:13px;color:var(--text-muted);padding:6px 2px 10px">No rocks for this day. Open a task and tap ⭐ to make it a top priority.</div>';
 
   html+='<div class="section-hd">📅 Meetings</div>';
   html+='<div class="day-mtgform">'
@@ -2305,10 +2364,10 @@ function dayViewHTML(){
     +'</div>';
   if(meetings.length){
     meetings.forEach(function(m){ html+='<div class="day-mtg" style="margin:0 0 4px">'+esc(m.text)+' <span class="tm">'+slotLabel(m.mtgStart||m.planSlot)+(m.mtgEnd?'–'+slotLabel(m.mtgEnd):'')+'</span><button class="day-chip-x" onclick="removeMeeting(\''+m.id+'\',event)">✕</button></div>'; });
-  } else html+='<div style="font-size:12px;color:var(--text-muted);padding:2px 2px 8px">No meetings added for today yet.</div>';
+  } else html+='<div style="font-size:12px;color:var(--text-muted);padding:2px 2px 8px">No meetings for this day yet.</div>';
 
-  html+='<div class="section-hd">🕒 Schedule your day</div>';
-  html+='<div style="font-size:12px;color:var(--text-muted);margin:-4px 0 8px">Open a task and use "Schedule for today" to drop it into a time slot below.</div>';
+  html+='<div class="section-hd">🕒 Schedule</div>';
+  html+='<div style="font-size:12px;color:var(--text-muted);margin:-4px 0 8px">Open a task → "Plan my day" → pick this day and a time to drop it into a slot.</div>';
   html+='<div class="day-grid">';
   slots.forEach(function(s){
     var cell=bySlot[s];
@@ -2320,7 +2379,7 @@ function dayViewHTML(){
   html+='</div>';
 
   html+='<div class="section-hd">📝 Notes</div>';
-  html+='<textarea class="day-notes" oninput="saveDayNotes(this.value)" placeholder="Jot anything for today…">'+esc(getDayNotes())+'</textarea>';
+  html+='<textarea class="day-notes" oninput="saveDayNotes(this.value)" placeholder="Notes for '+dayLabelShort(day)+'…">'+esc(getDayNotes(day))+'</textarea>';
 
   html+='</div>';
   return html;
@@ -3159,7 +3218,7 @@ function buildFilterCtxButtons() {
 function switchTab(tab, el) {
   currentTab = tab;
   document.querySelectorAll('[data-tab]').forEach(function(b){ b.classList.toggle('active', b.dataset.tab===tab); });
-  var titles = {all:'All actions',today:'Today',overdue:'Overdue',team:'Team follow-up',done:'Completed',dash:'Performance',day:'My Day'};
+  var titles = {all:'All actions',today:'Today',overdue:'Overdue',team:'Team follow-up',done:'Completed',dash:'Performance',day:'My Week'};
   var ttEl=document.getElementById('topbar-title'); if(ttEl) ttEl.textContent=titles[tab]||'Ross Actions';
   render();
 }
