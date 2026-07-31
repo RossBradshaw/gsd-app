@@ -2366,6 +2366,13 @@ function dayViewHTML(){
    +'.dt-task-t{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1;pointer-events:none}'
    +'.me-lbl{display:block;font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.06em;margin:0 0 5px}'
    +'.me-input{width:100%;box-sizing:border-box;padding:9px 10px;font-size:14px;border:1px solid var(--border);border-radius:9px;background:var(--maxa-white);color:var(--text-primary);font-family:inherit}'
+   +'.ol-bar{display:flex;align-items:center;flex-wrap:wrap;gap:8px;padding:9px 12px;margin:0 0 12px;border:1px solid var(--border);border-radius:10px;background:var(--card);font-size:13px;color:var(--text-primary)}'
+   +'.ol-dot{width:8px;height:8px;border-radius:50%;background:#9AA0A6;flex-shrink:0}'
+   +'.ol-dot.ok{background:#16A34A}'
+   +'.ol-sub{color:var(--text-muted);font-size:12px}'
+   +'.ol-btn{margin-left:4px;background:var(--maxa-yellow);color:#131516;border:none;border-radius:8px;padding:6px 12px;font-weight:700;font-size:12px;cursor:pointer;font-family:inherit}'
+   +'.ol-btn.ghost{background:transparent;border:1px solid var(--border);color:var(--text-muted);font-weight:600}'
+   +'.ol-btn.push{margin-left:auto}'
    +'</style>';
 
   var html=css+'<div class="day-wrap">';
@@ -2377,6 +2384,15 @@ function dayViewHTML(){
   else html+='<div style="font-size:13px;color:var(--text-muted);padding:6px 2px 10px">No rocks for this day. Open a task and tap ⭐ to make it a top priority.</div>';
 
   html+='<div class="section-hd">📅 Meetings &amp; schedule</div>';
+  if(typeof msConnected==='function' && msConnected()){
+    var _msLast=parseInt(lsGet(MS_K.last)||'0',10);
+    html+='<div class="ol-bar"><span class="ol-dot ok"></span><span>Outlook connected'+(msAccountLabel()?' · '+esc(msAccountLabel()):'')+'</span> <span class="ol-sub">synced '+msAgo(_msLast)+'</span>'
+      +'<button class="ol-btn push" onclick="syncOutlookNow(true)">↻ Sync now</button>'
+      +'<button class="ol-btn ghost" onclick="disconnectOutlook()">Disconnect</button></div>';
+  } else if(typeof msConnected==='function'){
+    html+='<div class="ol-bar"><span class="ol-dot"></span><span>Outlook not connected</span>'
+      +'<button class="ol-btn push" onclick="connectOutlook()">Connect Outlook</button></div>';
+  }
   html+='<div class="dt-hint">Tap any time to add a meeting · drag a meeting to move it · drag its bottom edge to resize · tap a meeting to edit.</div>';
   html+='<button class="day-add-btn" style="margin-bottom:10px" onclick="openMeetingEditor(null,'+mtgSlotIdx('09:00')+')">＋ Add meeting</button>';
 
@@ -4403,6 +4419,214 @@ function toggleTheme(){
   if(btn) btn.textContent=dark?'\ud83c\udf19':'\u2600';
 }
 
+/* ============================================================
+   MICROSOFT OUTLOOK (Graph) — in-browser sign-in + sync
+   Runs entirely from this browser (your location), never a US server.
+   ============================================================ */
+var MS = {
+  clientId: '7e3a4619-1f2f-4019-a770-1be6a464a0db',
+  tenant:   '4c323ad6-adf5-400b-9213-cc94f396d4a8',
+  redirectUri: 'https://rossbradshaw.github.io/gsd-app/',
+  scopes: 'offline_access Calendars.Read Tasks.Read User.Read',
+  CAL_DAYS: 21,
+  TODO_CTX: 'Admin',
+  TZ: 'Europe/London'
+};
+var MS_K = { rt:'maxa_ms_refresh', at:'maxa_ms_access', exp:'maxa_ms_exp', acct:'maxa_ms_account', last:'maxa_ms_lastsync' };
+
+function msConnected(){ return !!lsGet(MS_K.rt); }
+function msAccountLabel(){ return lsGet(MS_K.acct)||''; }
+function msCleanId(raw){ return String(raw||'').replace(/[^A-Za-z0-9]/g,'').substring(0,60); }
+function msStripHtml(s){ return String(s||'').replace(/<[^>]*>/g,' ').replace(/&nbsp;/g,' ').replace(/\s+/g,' ').trim(); }
+function msYmd(d){ return d.toLocaleDateString('en-CA',{timeZone:MS.TZ}); }
+function msAgo(ts){ if(!ts) return 'not yet'; var s=Math.floor((Date.now()-ts)/1000); if(s<60) return 'just now'; if(s<3600) return Math.floor(s/60)+'m ago'; if(s<86400) return Math.floor(s/3600)+'h ago'; return Math.floor(s/86400)+'d ago'; }
+
+/* ---- PKCE ---- */
+function msB64url(buf){ var b=new Uint8Array(buf), s=''; for(var i=0;i<b.length;i++) s+=String.fromCharCode(b[i]); return btoa(s).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,''); }
+function msRand(){ var a=new Uint8Array(48); crypto.getRandomValues(a); return msB64url(a); }
+async function msChallenge(v){ var d=await crypto.subtle.digest('SHA-256', new TextEncoder().encode(v)); return msB64url(d); }
+
+/* ---- popup handler (runs inside the sign-in popup) ---- */
+function msHandleAuthRedirect(){
+  try{
+    var q=new URLSearchParams(location.search);
+    var code=q.get('code'), err=q.get('error');
+    if((code||err) && window.opener && !window.opener.closed){
+      window.opener.postMessage({ __msauth:true, code:code, state:q.get('state'), error:err, error_description:q.get('error_description') }, location.origin);
+      document.documentElement.innerHTML='<body style="font:16px system-ui;padding:40px;color:#333">Connected — you can close this window.</body>';
+      setTimeout(function(){ try{ window.close(); }catch(e){} }, 400);
+      return true;
+    }
+  }catch(e){}
+  return false;
+}
+
+/* ---- interactive connect ---- */
+async function connectOutlook(){
+  try{
+    var verifier=msRand(); var state=msRand().slice(0,16);
+    lsSet('maxa_ms_pkce_'+state, verifier);
+    var challenge=await msChallenge(verifier);
+    var url='https://login.microsoftonline.com/'+MS.tenant+'/oauth2/v2.0/authorize'
+      +'?client_id='+encodeURIComponent(MS.clientId)
+      +'&response_type=code&redirect_uri='+encodeURIComponent(MS.redirectUri)
+      +'&response_mode=query&scope='+encodeURIComponent(MS.scopes)
+      +'&code_challenge='+challenge+'&code_challenge_method=S256'
+      +'&state='+state+'&prompt=select_account';
+    var w=560,h=680,left=Math.max(0,(screen.width-w)/2),top=Math.max(0,(screen.height-h)/2);
+    var popup=window.open(url,'msauth','width='+w+',height='+h+',left='+left+',top='+top);
+    if(!popup){ toast('Please allow popups for this site, then tap Connect again'); return; }
+    var handler=async function(ev){
+      if(ev.origin!==location.origin || !ev.data || !ev.data.__msauth) return;
+      window.removeEventListener('message', handler);
+      var d=ev.data;
+      if(d.error){ toast('Sign-in cancelled'); return; }
+      var v=lsGet('maxa_ms_pkce_'+(d.state||state))||verifier;
+      lsRemove('maxa_ms_pkce_'+(d.state||state));
+      await msExchangeCode(d.code, v);
+    };
+    window.addEventListener('message', handler);
+  }catch(e){ toast('Connect failed: '+e.message); }
+}
+
+async function msExchangeCode(code, verifier){
+  setSyncDot('syncing');
+  var body='client_id='+encodeURIComponent(MS.clientId)+'&grant_type=authorization_code&code='+encodeURIComponent(code)
+    +'&redirect_uri='+encodeURIComponent(MS.redirectUri)+'&code_verifier='+encodeURIComponent(verifier)+'&scope='+encodeURIComponent(MS.scopes);
+  try{
+    var res=await fetch('https://login.microsoftonline.com/'+MS.tenant+'/oauth2/v2.0/token',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:body});
+    var j=await res.json();
+    if(!j.access_token){ setSyncDot('error'); toast('Sign-in failed: '+String(j.error_description||j.error||'unknown').substring(0,90)); return; }
+    msStore(j);
+    await msFetchAccount();
+    render(true);
+    await syncOutlookNow(true);
+  }catch(e){ setSyncDot('error'); toast('Sign-in error: '+e.message.substring(0,80)); }
+}
+
+function msStore(j){
+  if(j.access_token){ lsSet(MS_K.at, j.access_token); lsSet(MS_K.exp, String(Date.now()+(j.expires_in||3600)*1000)); }
+  if(j.refresh_token){ lsSet(MS_K.rt, j.refresh_token); }
+}
+async function msFetchAccount(){
+  try{ var t=await msGetToken(); var r=await fetch('https://graph.microsoft.com/v1.0/me?$select=displayName,mail,userPrincipalName',{headers:{Authorization:'Bearer '+t}});
+    var j=await r.json(); lsSet(MS_K.acct, j.mail||j.userPrincipalName||j.displayName||'Connected'); }catch(e){}
+}
+async function msGetToken(){
+  var at=lsGet(MS_K.at), exp=parseInt(lsGet(MS_K.exp)||'0',10);
+  if(at && Date.now()<exp-60000) return at;
+  var rt=lsGet(MS_K.rt);
+  if(!rt) throw new Error('not-connected');
+  var body='client_id='+encodeURIComponent(MS.clientId)+'&grant_type=refresh_token&refresh_token='+encodeURIComponent(rt)+'&scope='+encodeURIComponent(MS.scopes);
+  var res=await fetch('https://login.microsoftonline.com/'+MS.tenant+'/oauth2/v2.0/token',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:body});
+  var j=await res.json();
+  if(!j.access_token){ msMarkExpired(); throw new Error('reauth'); }
+  msStore(j);
+  return j.access_token;
+}
+function msMarkExpired(){ [MS_K.rt,MS_K.at,MS_K.exp].forEach(function(k){ lsRemove(k); }); }
+function disconnectOutlook(){ [MS_K.rt,MS_K.at,MS_K.exp,MS_K.acct,MS_K.last].forEach(function(k){ lsRemove(k); }); toast('Outlook disconnected'); render(true); }
+
+/* ---- pull calendar + to-do ---- */
+async function msPullCalendar(token){
+  var now=new Date(), end=new Date(now.getTime()+MS.CAL_DAYS*86400000);
+  var url='https://graph.microsoft.com/v1.0/me/calendarView?startDateTime='+encodeURIComponent(now.toISOString())+'&endDateTime='+encodeURIComponent(end.toISOString())+'&$select=subject,start,end,isAllDay,location,isCancelled&$orderby=start/dateTime&$top=250';
+  var rows=[], ids={};
+  while(url){
+    var r=await fetch(url,{headers:{Authorization:'Bearer '+token, Prefer:'outlook.timezone="'+MS.TZ+'"'}});
+    if(!r.ok) throw new Error('calendar '+r.status);
+    var d=await r.json();
+    (d.value||[]).forEach(function(ev){
+      if(ev.isCancelled||ev.isAllDay||!ev.start||!ev.start.dateTime) return;
+      var sDate=ev.start.dateTime.substring(0,10), sTime=ev.start.dateTime.substring(11,16);
+      var eTime=(ev.end&&ev.end.dateTime)?ev.end.dateTime.substring(11,16):'';
+      var id='mscal_'+msCleanId(ev.id); ids[id]=true;
+      rows.push({ id:id, type:'meeting', text:ev.subject||'(no title)', planDate:sDate, planSlot:floorSlot(sTime), mtgStart:sTime, mtgEnd:eTime, ctx:'Meeting', assign:'Me', done:false, source:'outlook', notes:(ev.location&&ev.location.displayName)||'', created:Date.now(), modified:Date.now() });
+    });
+    url=d['@odata.nextLink']||null;
+  }
+  return { rows:rows, ids:ids, windowStart:msYmd(now), windowEnd:msYmd(end) };
+}
+async function msPullTodo(token){
+  var rows=[], ids={};
+  var lr=await fetch('https://graph.microsoft.com/v1.0/me/todo/lists?$top=50',{headers:{Authorization:'Bearer '+token}});
+  if(!lr.ok) return { rows:rows, ids:ids };
+  var lists=((await lr.json()).value)||[];
+  for(var i=0;i<lists.length;i++){
+    var url='https://graph.microsoft.com/v1.0/me/todo/lists/'+lists[i].id+'/tasks?$top=100&$select=title,status,importance,dueDateTime,body,id';
+    while(url){
+      var r=await fetch(url,{headers:{Authorization:'Bearer '+token}});
+      if(!r.ok) break;
+      var d=await r.json();
+      (d.value||[]).forEach(function(tk){
+        if(tk.status==='completed') return;
+        var id='mstd_'+msCleanId(tk.id); ids[id]=true;
+        var due=(tk.dueDateTime&&tk.dueDateTime.dateTime)?tk.dueDateTime.dateTime.substring(0,10):'';
+        var notes=(tk.body&&tk.body.content)?msStripHtml(tk.body.content).substring(0,300):'';
+        rows.push({ id:id, text:tk.title||'(no title)', ctx:MS.TODO_CTX, prio:(tk.importance==='high')?'High':'Normal', due:due, assign:'Me', notes:notes, done:false, source:'outlook', created:Date.now(), modified:Date.now() });
+      });
+      url=d['@odata.nextLink']||null;
+    }
+  }
+  return { rows:rows, ids:ids };
+}
+function msMerge(rows){
+  var byId={}; tasks.forEach(function(t,i){ byId[t.id]=i; });
+  rows.forEach(function(row){
+    if(byId[row.id]!=null) tasks[byId[row.id]]=Object.assign({}, tasks[byId[row.id]], row);
+    else { tasks.push(row); byId[row.id]=tasks.length-1; }
+  });
+}
+async function msReconcile(prefix, freshIds, winStart, winEnd){
+  var stale=[];
+  tasks.forEach(function(t){
+    if(String(t.id).indexOf(prefix)!==0) return;
+    if(freshIds[t.id]) return;
+    if(winStart){ var dd=t.planDate||''; if(!(dd>=winStart && dd<=winEnd)) return; }
+    stale.push(t.id);
+  });
+  if(!stale.length) return;
+  var s={}; stale.forEach(function(id){ s[id]=true; });
+  tasks=tasks.filter(function(t){ return !s[t.id]; });
+  for(var i=0;i<stale.length;i++){ try{ await supaFetch('DELETE','tasks',null,stale[i]); }catch(e){} }
+}
+async function msUpsertSupa(rows){
+  if(!rows.length) return;
+  var sr=rows.map(function(t){ return {id:t.id, data:t, updated_at:new Date().toISOString()}; });
+  for(var i=0;i<sr.length;i+=50){ try{ await supaFetch('POST','tasks',sr.slice(i,i+50)); }catch(e){} }
+}
+var _msSyncing=false;
+async function syncOutlookNow(showToast){
+  if(_msSyncing) return;
+  if(!msConnected()){ if(showToast) toast('Connect Outlook first'); return; }
+  var token;
+  try{ token=await msGetToken(); }
+  catch(e){
+    if(e.message==='reauth'){ if(showToast) toast('Outlook sign-in expired — tap Connect to sign in again'); render(true); }
+    return;
+  }
+  _msSyncing=true; setSyncDot('syncing');
+  try{
+    var cal=await msPullCalendar(token);
+    var todo=await msPullTodo(token);
+    var all=cal.rows.concat(todo.rows);
+    msMerge(all);
+    await msReconcile('mscal_', cal.ids, cal.windowStart, cal.windowEnd);
+    await msReconcile('mstd_', todo.ids, null, null);
+    saveTasks();
+    await msUpsertSupa(all);
+    lsSet(MS_K.last, String(Date.now()));
+    setSyncDot('ok'); render(true);
+    if(showToast) toast('Outlook synced — '+cal.rows.length+' meetings, '+todo.rows.length+' tasks');
+  }catch(e){ setSyncDot('error'); if(showToast) toast('Outlook sync error: '+String(e.message).substring(0,80)); }
+  finally{ _msSyncing=false; }
+}
+function msAutoSync(){ if(!msConnected()) return; var last=parseInt(lsGet(MS_K.last)||'0',10); if(Date.now()-last > 10*60*1000) syncOutlookNow(false); }
+
+if (msHandleAuthRedirect()) {
+  // This window is the Microsoft sign-in popup: it has handed the code back to
+  // the main app and will close itself — do NOT boot the full app here.
+} else {
 load();
 initTheme();
 autoBackupAll();
@@ -4429,8 +4653,11 @@ setInterval(checkEOD, 5*60*1000);
 setTimeout(function(){ _backgroundSync=true; syncPull(false).finally(function(){ _backgroundSync=false; }); }, 1200);
 setInterval(function(){ _backgroundSync=true; syncPull(false).finally(function(){ _backgroundSync=false; }); }, 2*60*1000);
 // Auto-refresh the instant the app is opened / brought back into focus
-document.addEventListener('visibilitychange', function(){ if(!document.hidden && !_syncing){ _backgroundSync=true; syncPull(false).finally(function(){ _backgroundSync=false; }); } });
-window.addEventListener('focus', function(){ if(!_syncing){ _backgroundSync=true; syncPull(false).finally(function(){ _backgroundSync=false; }); } });
+document.addEventListener('visibilitychange', function(){ if(!document.hidden && !_syncing){ _backgroundSync=true; syncPull(false).finally(function(){ _backgroundSync=false; }); } msAutoSync(); });
+window.addEventListener('focus', function(){ if(!_syncing){ _backgroundSync=true; syncPull(false).finally(function(){ _backgroundSync=false; }); } msAutoSync(); });
+// First Outlook pull shortly after load (if connected)
+setTimeout(msAutoSync, 2600);
+}
 </script>
 
 <script>
