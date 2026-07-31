@@ -4440,7 +4440,7 @@ var MS_K = { rt:'maxa_ms_refresh', at:'maxa_ms_access', exp:'maxa_ms_exp', acct:
 
 function msConnected(){ return !!lsGet(MS_K.rt); }
 function msAccountLabel(){ return lsGet(MS_K.acct)||''; }
-function msCleanId(raw){ return String(raw||'').replace(/[^A-Za-z0-9]/g,'').substring(0,60); }
+function msCleanId(raw){ raw=String(raw||''); var h1=5381,h2=52711; for(var i=0;i<raw.length;i++){ var c=raw.charCodeAt(i); h1=((h1*33)^c)>>>0; h2=((h2*39)^c)>>>0; } return h1.toString(36)+h2.toString(36); }
 function msStripHtml(s){ return String(s||'').replace(/<[^>]*>/g,' ').replace(/&nbsp;/g,' ').replace(/\s+/g,' ').trim(); }
 function msYmd(d){ return d.toLocaleDateString('en-CA',{timeZone:MS.TZ}); }
 function msAgo(ts){ if(!ts) return 'not yet'; var s=Math.floor((Date.now()-ts)/1000); if(s<60) return 'just now'; if(s<3600) return Math.floor(s/60)+'m ago'; if(s<86400) return Math.floor(s/3600)+'h ago'; return Math.floor(s/86400)+'d ago'; }
