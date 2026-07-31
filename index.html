@@ -4549,7 +4549,7 @@ async function msPullTodo(token){
   if(!lr.ok) return { rows:rows, ids:ids };
   var lists=((await lr.json()).value)||[];
   for(var i=0;i<lists.length;i++){
-    var url='https://graph.microsoft.com/v1.0/me/todo/lists/'+lists[i].id+'/tasks?$top=100&$select=title,status,importance,dueDateTime,body,id';
+    var url='https://graph.microsoft.com/v1.0/me/todo/lists/'+lists[i].id+"/tasks?$top=100&$filter="+encodeURIComponent("status ne 'completed'");
     while(url){
       var r=await fetch(url,{headers:{Authorization:'Bearer '+token}});
       if(!r.ok) break;
