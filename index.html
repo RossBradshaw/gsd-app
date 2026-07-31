@@ -2281,7 +2281,7 @@ function addMeetingFromForm(){
   var m={ id:'mtg_'+uid(), type:'meeting', text:ti.value.trim(), planDate:planDay(), planSlot:floorSlot(start), mtgStart:start, mtgEnd:end, done:false, ctx:'Meeting', assign:'Me', created:Date.now() };
   tasks.push(m); saveTasks(); render(true);
 }
-function removeMeeting(id,e){ if(e) e.stopPropagation(); if(typeof recordDeleted==='function') recordDeleted(id); tasks=tasks.filter(function(t){return t.id!==id;}); saveTasks(); render(true); }
+function removeMeeting(id,e){ if(e) e.stopPropagation(); var _m=tasks.find(function(t){return t.id===id;}); var _ev=_m&&_m.msEventId; if(typeof recordDeleted==='function') recordDeleted(id); tasks=tasks.filter(function(t){return t.id!==id;}); saveTasks(); render(true); if(_ev && typeof msDeleteMeetingOut==='function') msDeleteMeetingOut(_ev); }
 
 function dayRockCardHTML(t){
   var pslot=(t.planSlot?'<span class="pill pill-date">⏰ '+slotLabel(t.planSlot)+'</span>':'');
@@ -2479,16 +2479,19 @@ function saveMeetingFromModal(id){
   if(!title){ toast('Add a meeting title'); return; }
   var start=st?st.value:'09:00', end=en?en.value:'';
   if(!end || minutesOf(end)<=minutesOf(start)){ end = hhmmOf(minutesOf(start)+30); }
+  var savedId;
   if(id && id!=='null'){
     var m=tasks.find(function(x){ return x.id===id; });
     if(!m){ closeOverlay('detail-overlay'); return; }
     m.text=title; m.mtgStart=start; m.mtgEnd=end; m.planSlot=floorSlot(start);
     if(!m.planDate) m.planDate=planDay();
-    m.modified=Date.now();
+    m.modified=Date.now(); savedId=m.id;
   } else {
-    tasks.push({ id:'mtg_'+uid(), type:'meeting', text:title, planDate:planDay(), planSlot:floorSlot(start), mtgStart:start, mtgEnd:end, done:false, ctx:'Meeting', assign:'Me', created:Date.now() });
+    savedId='mtg_'+uid();
+    tasks.push({ id:savedId, type:'meeting', text:title, planDate:planDay(), planSlot:floorSlot(start), mtgStart:start, mtgEnd:end, done:false, ctx:'Meeting', assign:'Me', created:Date.now() });
   }
   saveTasks(); closeOverlay('detail-overlay'); render(true);
+  if(typeof msPushMeeting==='function') msPushMeeting(savedId);
 }
 function deleteMeetingFromModal(id){ closeOverlay('detail-overlay'); removeMeeting(id); }
 
@@ -2503,6 +2506,7 @@ function commitMeetingTimes(id, startIdx, durSlots){
   m.planSlot = floorSlot(m.mtgStart);
   m.modified = Date.now();
   saveTasks(); render(true);
+  if(typeof msPushMeeting==='function') msPushMeeting(id);
 }
 function attachMtgDrag(b, SLOT_H, N){
   var id=b.getAttribute('data-id');
@@ -4427,7 +4431,7 @@ var MS = {
   clientId: '7e3a4619-1f2f-4019-a770-1be6a464a0db',
   tenant:   '4c323ad6-adf5-400b-9213-cc94f396d4a8',
   redirectUri: 'https://rossbradshaw.github.io/gsd-app/',
-  scopes: 'offline_access Calendars.Read Tasks.Read User.Read',
+  scopes: 'offline_access Calendars.ReadWrite Tasks.Read User.Read',
   CAL_DAYS: 21,
   TODO_CTX: 'Admin',
   TZ: 'Europe/London'
@@ -4446,26 +4450,12 @@ function msB64url(buf){ var b=new Uint8Array(buf), s=''; for(var i=0;i<b.length;
 function msRand(){ var a=new Uint8Array(48); crypto.getRandomValues(a); return msB64url(a); }
 async function msChallenge(v){ var d=await crypto.subtle.digest('SHA-256', new TextEncoder().encode(v)); return msB64url(d); }
 
-/* ---- popup handler (runs inside the sign-in popup) ---- */
-function msHandleAuthRedirect(){
-  try{
-    var q=new URLSearchParams(location.search);
-    var code=q.get('code'), err=q.get('error');
-    if((code||err) && window.opener && !window.opener.closed){
-      window.opener.postMessage({ __msauth:true, code:code, state:q.get('state'), error:err, error_description:q.get('error_description') }, location.origin);
-      document.documentElement.innerHTML='<body style="font:16px system-ui;padding:40px;color:#333">Connected — you can close this window.</body>';
-      setTimeout(function(){ try{ window.close(); }catch(e){} }, 400);
-      return true;
-    }
-  }catch(e){}
-  return false;
-}
-
-/* ---- interactive connect ---- */
+/* ---- interactive connect (full-page redirect — robust to popup blockers & COOP) ---- */
 async function connectOutlook(){
   try{
     var verifier=msRand(); var state=msRand().slice(0,16);
     lsSet('maxa_ms_pkce_'+state, verifier);
+    lsSet('maxa_ms_state', state);
     var challenge=await msChallenge(verifier);
     var url='https://login.microsoftonline.com/'+MS.tenant+'/oauth2/v2.0/authorize'
       +'?client_id='+encodeURIComponent(MS.clientId)
@@ -4473,20 +4463,25 @@ async function connectOutlook(){
       +'&response_mode=query&scope='+encodeURIComponent(MS.scopes)
       +'&code_challenge='+challenge+'&code_challenge_method=S256'
       +'&state='+state+'&prompt=select_account';
-    var w=560,h=680,left=Math.max(0,(screen.width-w)/2),top=Math.max(0,(screen.height-h)/2);
-    var popup=window.open(url,'msauth','width='+w+',height='+h+',left='+left+',top='+top);
-    if(!popup){ toast('Please allow popups for this site, then tap Connect again'); return; }
-    var handler=async function(ev){
-      if(ev.origin!==location.origin || !ev.data || !ev.data.__msauth) return;
-      window.removeEventListener('message', handler);
-      var d=ev.data;
-      if(d.error){ toast('Sign-in cancelled'); return; }
-      var v=lsGet('maxa_ms_pkce_'+(d.state||state))||verifier;
-      lsRemove('maxa_ms_pkce_'+(d.state||state));
-      await msExchangeCode(d.code, v);
-    };
-    window.addEventListener('message', handler);
+    toast('Opening Microsoft sign-in…');
+    window.location.assign(url);
   }catch(e){ toast('Connect failed: '+e.message); }
+}
+
+/* ---- handle the redirect back from Microsoft (runs on app load) ---- */
+async function msCheckAuthReturn(){
+  var q;
+  try{ q=new URLSearchParams(location.search); }catch(e){ return; }
+  var code=q.get('code'), state=q.get('state'), err=q.get('error');
+  if(!code && !err) return;
+  // Clean ?code from the URL immediately so a refresh can't reprocess it
+  try{ history.replaceState({}, document.title, location.pathname); }catch(e){}
+  if(err){ toast('Sign-in cancelled: '+String(q.get('error_description')||err).substring(0,90)); return; }
+  var expectState=lsGet('maxa_ms_state');
+  var verifier=lsGet('maxa_ms_pkce_'+(state||expectState));
+  lsRemove('maxa_ms_pkce_'+(state||expectState)); lsRemove('maxa_ms_state');
+  if(!verifier){ toast('Sign-in session expired — tap Connect Outlook again'); return; }
+  await msExchangeCode(code, verifier);
 }
 
 async function msExchangeCode(code, verifier){
@@ -4531,7 +4526,7 @@ function disconnectOutlook(){ [MS_K.rt,MS_K.at,MS_K.exp,MS_K.acct,MS_K.last].for
 async function msPullCalendar(token){
   var now=new Date(), end=new Date(now.getTime()+MS.CAL_DAYS*86400000);
   var url='https://graph.microsoft.com/v1.0/me/calendarView?startDateTime='+encodeURIComponent(now.toISOString())+'&endDateTime='+encodeURIComponent(end.toISOString())+'&$select=subject,start,end,isAllDay,location,isCancelled&$orderby=start/dateTime&$top=250';
-  var rows=[], ids={};
+  var rows=[], eventIds={};
   while(url){
     var r=await fetch(url,{headers:{Authorization:'Bearer '+token, Prefer:'outlook.timezone="'+MS.TZ+'"'}});
     if(!r.ok) throw new Error('calendar '+r.status);
@@ -4540,12 +4535,12 @@ async function msPullCalendar(token){
       if(ev.isCancelled||ev.isAllDay||!ev.start||!ev.start.dateTime) return;
       var sDate=ev.start.dateTime.substring(0,10), sTime=ev.start.dateTime.substring(11,16);
       var eTime=(ev.end&&ev.end.dateTime)?ev.end.dateTime.substring(11,16):'';
-      var id='mscal_'+msCleanId(ev.id); ids[id]=true;
-      rows.push({ id:id, type:'meeting', text:ev.subject||'(no title)', planDate:sDate, planSlot:floorSlot(sTime), mtgStart:sTime, mtgEnd:eTime, ctx:'Meeting', assign:'Me', done:false, source:'outlook', notes:(ev.location&&ev.location.displayName)||'', created:Date.now(), modified:Date.now() });
+      var id='mscal_'+msCleanId(ev.id); eventIds[ev.id]=true;
+      rows.push({ id:id, type:'meeting', msEventId:ev.id, text:ev.subject||'(no title)', planDate:sDate, planSlot:floorSlot(sTime), mtgStart:sTime, mtgEnd:eTime, ctx:'Meeting', assign:'Me', done:false, source:'outlook', notes:(ev.location&&ev.location.displayName)||'', created:Date.now(), modified:Date.now() });
     });
     url=d['@odata.nextLink']||null;
   }
-  return { rows:rows, ids:ids, windowStart:msYmd(now), windowEnd:msYmd(end) };
+  return { rows:rows, eventIds:eventIds, windowStart:msYmd(now), windowEnd:msYmd(end) };
 }
 async function msPullTodo(token){
   var rows=[], ids={};
@@ -4576,6 +4571,66 @@ function msMerge(rows){
     if(byId[row.id]!=null) tasks[byId[row.id]]=Object.assign({}, tasks[byId[row.id]], row);
     else { tasks.push(row); byId[row.id]=tasks.length-1; }
   });
+}
+/* Merge calendar rows by the real Outlook event id, so app-created meetings that
+   were pushed to Outlook (and carry msEventId) update in place instead of duplicating. */
+function msMergeCalendar(rows){
+  var affected=[];
+  var byEvent={}; tasks.forEach(function(t){ if(t.type==='meeting' && t.msEventId) byEvent[t.msEventId]=t; });
+  var byId={}; tasks.forEach(function(t,i){ byId[t.id]=i; });
+  rows.forEach(function(row){
+    var ex=byEvent[row.msEventId];
+    if(ex){
+      ex.text=row.text; ex.planDate=row.planDate; ex.planSlot=row.planSlot; ex.mtgStart=row.mtgStart; ex.mtgEnd=row.mtgEnd; ex.notes=row.notes; ex.source='outlook'; ex.modified=Date.now();
+      affected.push(ex);
+    } else if(byId[row.id]!=null){
+      tasks[byId[row.id]]=Object.assign({}, tasks[byId[row.id]], row); affected.push(tasks[byId[row.id]]);
+    } else { tasks.push(row); affected.push(row); }
+  });
+  return affected;
+}
+async function msReconcileCalendar(freshEventIds, winStart, winEnd){
+  var stale=[];
+  tasks.forEach(function(t){
+    if(t.type!=='meeting' || !t.msEventId) return;   // only Outlook-linked meetings
+    if(freshEventIds[t.msEventId]) return;
+    var dd=t.planDate||''; if(!(dd>=winStart && dd<=winEnd)) return;
+    stale.push(t.id);
+  });
+  if(!stale.length) return;
+  var s={}; stale.forEach(function(id){ s[id]=true; });
+  tasks=tasks.filter(function(t){ return !s[t.id]; });
+  for(var i=0;i<stale.length;i++){ try{ await supaFetch('DELETE','tasks',null,stale[i]); }catch(e){} }
+}
+/* ---- write-back: push app meetings out to Outlook ---- */
+function msEventBody(m){
+  var date=m.planDate||planDay(), start=m.mtgStart||'09:00', end=m.mtgEnd||'';
+  if(!end || minutesOf(end)<=minutesOf(start)) end=hhmmOf(minutesOf(start)+30);
+  return {
+    subject: m.text||'(no title)',
+    start: { dateTime: date+'T'+start+':00', timeZone: MS.TZ },
+    end:   { dateTime: date+'T'+end+':00',   timeZone: MS.TZ }
+  };
+}
+async function msPushMeeting(localId){
+  if(!msConnected()) return;
+  var m=tasks.find(function(t){ return t.id===localId; });
+  if(!m || m.type!=='meeting') return;
+  var token; try{ token=await msGetToken(); }catch(e){ return; }
+  var body=msEventBody(m);
+  try{
+    if(m.msEventId){
+      await fetch('https://graph.microsoft.com/v1.0/me/events/'+encodeURIComponent(m.msEventId),{method:'PATCH',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify(body)});
+    } else {
+      var r=await fetch('https://graph.microsoft.com/v1.0/me/events',{method:'POST',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify(body)});
+      if(r.ok){ var ev=await r.json(); m.msEventId=ev.id; saveTasks(); msUpsertSupa([m]); }
+    }
+  }catch(e){}
+}
+async function msDeleteMeetingOut(msEventId){
+  if(!msConnected() || !msEventId) return;
+  var token; try{ token=await msGetToken(); }catch(e){ return; }
+  try{ await fetch('https://graph.microsoft.com/v1.0/me/events/'+encodeURIComponent(msEventId),{method:'DELETE',headers:{Authorization:'Bearer '+token}}); }catch(e){}
 }
 async function msReconcile(prefix, freshIds, winStart, winEnd){
   var stale=[];
@@ -4609,12 +4664,12 @@ async function syncOutlookNow(showToast){
   try{
     var cal=await msPullCalendar(token);
     var todo=await msPullTodo(token);
-    var all=cal.rows.concat(todo.rows);
-    msMerge(all);
-    await msReconcile('mscal_', cal.ids, cal.windowStart, cal.windowEnd);
+    var affectedCal=msMergeCalendar(cal.rows);
+    msMerge(todo.rows);
+    await msReconcileCalendar(cal.eventIds, cal.windowStart, cal.windowEnd);
     await msReconcile('mstd_', todo.ids, null, null);
     saveTasks();
-    await msUpsertSupa(all);
+    await msUpsertSupa(affectedCal.concat(todo.rows));
     lsSet(MS_K.last, String(Date.now()));
     setSyncDot('ok'); render(true);
     if(showToast) toast('Outlook synced — '+cal.rows.length+' meetings, '+todo.rows.length+' tasks');
@@ -4623,10 +4678,6 @@ async function syncOutlookNow(showToast){
 }
 function msAutoSync(){ if(!msConnected()) return; var last=parseInt(lsGet(MS_K.last)||'0',10); if(Date.now()-last > 10*60*1000) syncOutlookNow(false); }
 
-if (msHandleAuthRedirect()) {
-  // This window is the Microsoft sign-in popup: it has handed the code back to
-  // the main app and will close itself — do NOT boot the full app here.
-} else {
 load();
 initTheme();
 autoBackupAll();
@@ -4657,7 +4708,8 @@ document.addEventListener('visibilitychange', function(){ if(!document.hidden &&
 window.addEventListener('focus', function(){ if(!_syncing){ _backgroundSync=true; syncPull(false).finally(function(){ _backgroundSync=false; }); } msAutoSync(); });
 // First Outlook pull shortly after load (if connected)
 setTimeout(msAutoSync, 2600);
-}
+// If we just came back from a Microsoft sign-in redirect, finish it
+msCheckAuthReturn();
 </script>
 
 <script>
