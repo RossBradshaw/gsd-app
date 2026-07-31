@@ -4544,15 +4544,15 @@ async function msPullCalendar(token){
   return { rows:rows, eventIds:eventIds, windowStart:msYmd(now), windowEnd:msYmd(end) };
 }
 async function msPullTodo(token){
-  var rows=[], ids={};
+  var rows=[], ids={}, ok=true;
   var lr=await fetch('https://graph.microsoft.com/v1.0/me/todo/lists?$top=50',{headers:{Authorization:'Bearer '+token}});
-  if(!lr.ok) return { rows:rows, ids:ids };
+  if(!lr.ok) return { rows:rows, ids:ids, ok:false };
   var lists=((await lr.json()).value)||[];
   for(var i=0;i<lists.length;i++){
     var url='https://graph.microsoft.com/v1.0/me/todo/lists/'+lists[i].id+"/tasks?$top=100&$filter="+encodeURIComponent("status ne 'completed'");
     while(url){
       var r=await fetch(url,{headers:{Authorization:'Bearer '+token}});
-      if(!r.ok) break;
+      if(!r.ok){ ok=false; break; }
       var d=await r.json();
       (d.value||[]).forEach(function(tk){
         if(tk.status==='completed') return;
@@ -4564,7 +4564,7 @@ async function msPullTodo(token){
       url=d['@odata.nextLink']||null;
     }
   }
-  return { rows:rows, ids:ids };
+  return { rows:rows, ids:ids, ok:ok };
 }
 function msMerge(rows){
   var byId={}; tasks.forEach(function(t,i){ byId[t.id]=i; });
@@ -4681,7 +4681,8 @@ async function syncOutlookNow(showToast){
     var affectedCal=msMergeCalendar(cal.rows);
     msMerge(todo.rows);
     await msReconcileCalendar(cal.eventIds, cal.windowStart, cal.windowEnd);
-    await msReconcile('mstd_', todo.ids, null, null);
+    // Only prune To-Dos if the pull genuinely succeeded — never delete on a failed/empty-error pull
+    if(todo.ok) await msReconcile('mstd_', todo.ids, null, null);
     saveTasks();
     await msUpsertSupa(affectedCal.concat(todo.rows));
     lsSet(MS_K.last, String(Date.now()));
