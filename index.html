@@ -4496,6 +4496,7 @@ async function msExchangeCode(code, verifier){
     await msFetchAccount();
     render(true);
     await syncOutlookNow(true);
+    await msPushPending();
   }catch(e){ setSyncDot('error'); toast('Sign-in error: '+e.message.substring(0,80)); }
 }
 
@@ -4616,16 +4617,29 @@ async function msPushMeeting(localId){
   if(!msConnected()) return;
   var m=tasks.find(function(t){ return t.id===localId; });
   if(!m || m.type!=='meeting') return;
-  var token; try{ token=await msGetToken(); }catch(e){ return; }
+  var token; try{ token=await msGetToken(); }catch(e){ toast('Outlook: sign-in expired — tap Connect to reconnect'); return; }
   var body=msEventBody(m);
   try{
-    if(m.msEventId){
-      await fetch('https://graph.microsoft.com/v1.0/me/events/'+encodeURIComponent(m.msEventId),{method:'PATCH',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify(body)});
+    var url='https://graph.microsoft.com/v1.0/me/events', method='POST';
+    if(m.msEventId){ url+='/'+encodeURIComponent(m.msEventId); method='PATCH'; }
+    var r=await fetch(url,{method:method,headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify(body)});
+    if(r.ok){
+      if(method==='POST'){ var ev=await r.json(); m.msEventId=ev.id; saveTasks(); msUpsertSupa([m]); }
+      toast('Saved to Outlook ✓');
     } else {
-      var r=await fetch('https://graph.microsoft.com/v1.0/me/events',{method:'POST',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify(body)});
-      if(r.ok){ var ev=await r.json(); m.msEventId=ev.id; saveTasks(); msUpsertSupa([m]); }
+      var txt=''; try{ txt=await r.text(); }catch(_){}
+      var gmsg=''; try{ gmsg=((JSON.parse(txt).error)||{}).message||''; }catch(_){}
+      console.error('Outlook write failed', r.status, txt);
+      if(r.status===403) toast('Outlook write blocked (403) — reconnect to grant calendar write access');
+      else toast('Outlook couldn\'t save ('+r.status+(gmsg?': '+gmsg.substring(0,50):'')+')');
     }
-  }catch(e){}
+  }catch(e){ toast('Outlook write error: '+String(e.message).substring(0,60)); }
+}
+/* Re-push any app-created meetings that never made it to Outlook (e.g. created before write access worked). */
+async function msPushPending(){
+  if(!msConnected()) return;
+  var pending=tasks.filter(function(t){ return t.type==='meeting' && !t.msEventId && String(t.id).indexOf('mtg_')===0 && !t.done; });
+  for(var i=0;i<pending.length;i++){ await msPushMeeting(pending[i].id); }
 }
 async function msDeleteMeetingOut(msEventId){
   if(!msConnected() || !msEventId) return;
