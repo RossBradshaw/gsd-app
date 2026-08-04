@@ -1025,6 +1025,9 @@ input[type=range]{accent-color:var(--maxa-yellow);width:100%}
       <button class="btn-cancel" onclick="syncPull(true)" style="flex:1">↓ Pull latest</button>
       <button class="btn-save" onclick="syncPush(true)" style="flex:1">↑ Push now</button>
     </div>
+    <div style="margin-bottom:12px">
+      <button class="btn-cancel" onclick="authSignOut()" style="width:100%;font-size:12px">Sign out</button>
+    </div>
     <div id="sync-status-bar" style="display:none;font-size:13px;padding:10px 12px;border-radius:var(--radius-md);margin-bottom:12px"></div>
     <div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border)">
       <div style="font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.07em;margin-bottom:8px">Local backup</div>
@@ -3822,6 +3825,127 @@ var SUPA_URL = 'https://bwcbogdbusqsvbpkwyvm.supabase.co';
 var SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ3Y2JvZ2RidXNxc3ZicGt3eXZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODU0MDg2OTQsImV4cCI6MjEwMDk4NDY5NH0.3XtMBpuAD9ueBBR_3n0NekAdHD-TFwX5UwZNeZ17pn0';
 var SYNC_LAST_KEY = 'maxa_sync_last';
 
+/* ══════════════════════════════════════════
+   AUTH — email + password via Supabase REST.
+   Added so the data is private: only a signed-in
+   user's token can read/write. The anon key alone
+   is rejected by Row Level Security.
+══════════════════════════════════════════ */
+var AUTH_KEY = 'maxa_auth_session';
+function getAuthSession(){ try{ var r=lsGet(AUTH_KEY); return r?JSON.parse(r):null; }catch(e){ return null; } }
+function setAuthSession(s){ try{ lsSet(AUTH_KEY, JSON.stringify(s)); }catch(e){} }
+function clearAuthSession(){ lsRemove(AUTH_KEY); }
+function authToken(){ var s=getAuthSession(); return (s&&s.access_token)?s.access_token:null; }
+
+async function authSignIn(email, password){
+  try{
+    var res = await fetch(SUPA_URL + '/auth/v1/token?grant_type=password', {
+      method:'POST',
+      headers:{ 'apikey':SUPA_KEY, 'Content-Type':'application/json' },
+      body: JSON.stringify({ email:email, password:password })
+    });
+    var data=null; try{ data = await res.json(); }catch(e){}
+    if(!res.ok || !data || !data.access_token){
+      var msg = (data && (data.error_description || data.msg || data.error)) || ('Sign-in failed ('+res.status+')');
+      return { ok:false, error:msg };
+    }
+    setAuthSession({
+      access_token: data.access_token,
+      refresh_token: data.refresh_token,
+      expires_at: Date.now() + ((data.expires_in||3600)*1000),
+      email: (data.user && data.user.email) || email
+    });
+    return { ok:true };
+  }catch(e){ return { ok:false, error:'Network error — check your connection.' }; }
+}
+
+async function authRefresh(){
+  var s=getAuthSession();
+  if(!s || !s.refresh_token) return false;
+  try{
+    var res = await fetch(SUPA_URL + '/auth/v1/token?grant_type=refresh_token', {
+      method:'POST',
+      headers:{ 'apikey':SUPA_KEY, 'Content-Type':'application/json' },
+      body: JSON.stringify({ refresh_token:s.refresh_token })
+    });
+    var data=null; try{ data = await res.json(); }catch(e){}
+    if(!res.ok || !data || !data.access_token) return false;
+    setAuthSession({
+      access_token: data.access_token,
+      refresh_token: data.refresh_token || s.refresh_token,
+      expires_at: Date.now() + ((data.expires_in||3600)*1000),
+      email: (data.user && data.user.email) || s.email
+    });
+    return true;
+  }catch(e){ return false; }
+}
+
+// Valid access token, refreshing if near/after expiry. null if not signed in.
+async function ensureAuthToken(){
+  var s=getAuthSession();
+  if(!s || !s.access_token) return null;
+  if(s.expires_at && Date.now() > (s.expires_at - 60000)){
+    var ok = await authRefresh();
+    if(!ok){ return null; }
+    s = getAuthSession();
+  }
+  return s ? s.access_token : null;
+}
+
+function authSignOut(){ clearAuthSession(); location.reload(); }
+
+function showLoginOverlay(prefillMsg){
+  if(document.getElementById('auth-overlay')) return;
+  var ov = document.createElement('div');
+  ov.id = 'auth-overlay';
+  ov.style.cssText = 'position:fixed;inset:0;z-index:2147483000;background:#131516;display:flex;align-items:center;justify-content:center;padding:24px;';
+  ov.innerHTML =
+      '<div style="width:100%;max-width:340px;background:#1c1f21;border:1px solid #2a2e30;border-radius:16px;padding:28px 24px;box-shadow:0 10px 40px rgba(0,0,0,0.5);font-family:Onest,system-ui,sans-serif;">'
+    +   '<div style="font-size:24px;font-weight:700;color:#FFCD00;margin-bottom:4px;">GSD</div>'
+    +   '<div style="font-size:13px;color:#9aa0a6;margin-bottom:20px;">Sign in to access your actions</div>'
+    +   '<input id="auth-email" type="email" autocomplete="username" placeholder="Email" style="width:100%;box-sizing:border-box;padding:12px 14px;margin-bottom:10px;background:#131516;border:1px solid #2a2e30;border-radius:10px;color:#fff;font-size:15px;outline:none;">'
+    +   '<input id="auth-pass" type="password" autocomplete="current-password" placeholder="Password" style="width:100%;box-sizing:border-box;padding:12px 14px;margin-bottom:14px;background:#131516;border:1px solid #2a2e30;border-radius:10px;color:#fff;font-size:15px;outline:none;">'
+    +   '<button id="auth-btn" style="width:100%;padding:13px;background:#FFCD00;color:#131516;border:none;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;">Sign in</button>'
+    +   '<div id="auth-err" style="display:none;margin-top:12px;font-size:13px;color:#ff6b6b;text-align:center;line-height:1.4;"></div>'
+    + '</div>';
+  document.body.appendChild(ov);
+  var emailEl=document.getElementById('auth-email');
+  var passEl=document.getElementById('auth-pass');
+  var btn=document.getElementById('auth-btn');
+  var err=document.getElementById('auth-err');
+  var savedEmail=(getAuthSession()||{}).email;
+  if(savedEmail) emailEl.value=savedEmail;
+  if(prefillMsg){ err.style.display='block'; err.textContent=prefillMsg; }
+  function doLogin(){
+    var em=(emailEl.value||'').trim(); var pw=passEl.value||'';
+    if(!em || !pw){ err.style.display='block'; err.textContent='Enter your email and password.'; return; }
+    btn.disabled=true; btn.textContent='Signing in…'; err.style.display='none';
+    authSignIn(em, pw).then(function(r){
+      if(r.ok){
+        var el=document.getElementById('auth-overlay'); if(el) el.remove();
+        setSyncDot('syncing');
+        syncPull(false).then(function(){ if(typeof render==='function') render(); });
+      } else {
+        btn.disabled=false; btn.textContent='Sign in';
+        err.style.display='block'; err.textContent=r.error||'Sign-in failed.';
+      }
+    });
+  }
+  btn.addEventListener('click', doLogin);
+  passEl.addEventListener('keydown', function(e){ if(e.key==='Enter') doLogin(); });
+  emailEl.addEventListener('keydown', function(e){ if(e.key==='Enter') passEl.focus(); });
+  setTimeout(function(){ try{ (savedEmail?passEl:emailEl).focus(); }catch(e){} }, 100);
+}
+
+function authInit(){
+  if(!authToken()){
+    showLoginOverlay();
+  } else {
+    ensureAuthToken().then(function(tok){ if(!tok) showLoginOverlay('Your session expired — please sign in again.'); });
+  }
+}
+
+
 var DELETED_KEY = 'maxa_deleted_v1';
 function getDeletedIds() {
   try { var r=lsGet(DELETED_KEY); return r?JSON.parse(r):{}; } catch(e){ return {}; }
@@ -3855,6 +3979,8 @@ function setSyncDot(state) {
 }
 
 async function supaFetch(method, table, body, deleteId) {
+  var _tok = await ensureAuthToken();
+  if(!_tok) throw new Error('Not signed in');
   var url = SUPA_URL + '/rest/v1/' + table;
   if(method === 'GET') url += '?select=*&limit=10000';
   if(method === 'DELETE' && deleteId) url += '?id=eq.' + encodeURIComponent(deleteId);
@@ -3862,7 +3988,7 @@ async function supaFetch(method, table, body, deleteId) {
     method: method,
     headers: {
       'apikey': SUPA_KEY,
-      'Authorization': 'Bearer ' + SUPA_KEY,
+      'Authorization': 'Bearer ' + _tok,
       'Content-Type': 'application/json',
       'Prefer': method === 'POST' ? 'resolution=merge-duplicates,return=minimal' : ''
     }
@@ -3882,6 +4008,7 @@ async function supaFetch(method, table, body, deleteId) {
 
 async function syncPush(showToast) {
   if(_syncing) return;
+  if(!authToken()){ setSyncDot('off'); return; }
   _syncing = true;
   if(showToast) setSyncDot('syncing');
   try {
@@ -3950,6 +4077,7 @@ async function syncPush(showToast) {
 
 async function syncPull(showToast) {
   if(_syncing) return;
+  if(!authToken()){ setSyncDot('off'); return; }
   var wsAtStart = CURRENT_WS;
   _syncing = true;
   if(showToast) setSyncDot('syncing');
@@ -4709,13 +4837,17 @@ setInterval(checkEOD, 5*60*1000);
   var now  = Date.now();
   var ONE_DAY = 24 * 60 * 60 * 1000;
   if(now - last > ONE_DAY) {
-    fetch(SUPA_URL + '/rest/v1/tasks?select=id&limit=1', {
-      headers: { 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + SUPA_KEY }
-    }).then(function() {
-      lsSet(KEEPALIVE_KEY, now.toString());
-    }).catch(function(){});
+    ensureAuthToken().then(function(_tok){
+      if(!_tok) return;
+      fetch(SUPA_URL + '/rest/v1/tasks?select=id&limit=1', {
+        headers: { 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + _tok }
+      }).then(function() {
+        lsSet(KEEPALIVE_KEY, now.toString());
+      }).catch(function(){});
+    });
   }
 })();
+authInit();
 setTimeout(function(){ _backgroundSync=true; syncPull(false).finally(function(){ _backgroundSync=false; }); }, 1200);
 setInterval(function(){ _backgroundSync=true; syncPull(false).finally(function(){ _backgroundSync=false; }); }, 2*60*1000);
 // Auto-refresh the instant the app is opened / brought back into focus
