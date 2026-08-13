@@ -4685,7 +4685,8 @@ async function msPullTodo(token){
       (d.value||[]).forEach(function(tk){
         if(tk.status==='completed') return;
         var id='mstd_'+msCleanId(tk.id); ids[id]=true;
-        var due=(tk.dueDateTime&&tk.dueDateTime.dateTime)?tk.dueDateTime.dateTime.substring(0,10):'';
+        var due='';
+        if(tk.dueDateTime&&tk.dueDateTime.dateTime){ var _dr=tk.dueDateTime.dateTime; var _dz=/[zZ]$|[+-]\d\d:?\d\d$/.test(_dr); var _dd=new Date(_dz?_dr:_dr+'Z'); due=isNaN(_dd.getTime())?_dr.substring(0,10):msYmd(_dd); }
         var notes=(tk.body&&tk.body.content)?msStripHtml(tk.body.content).substring(0,300):'';
         rows.push({ id:id, text:tk.title||'(no title)', ctx:MS.TODO_CTX, prio:(tk.importance==='high')?'High':'Normal', due:due, assign:'Me', notes:notes, done:false, source:'outlook', created:Date.now(), modified:Date.now() });
       });
