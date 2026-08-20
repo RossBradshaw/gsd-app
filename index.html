@@ -909,7 +909,7 @@ input[type=range]{accent-color:var(--maxa-yellow);width:100%}
       <div style="font-size:11px;color:var(--text-muted);margin-top:5px">Previously used contacts will appear above for quick re-use</div>
     </div>
     <label class="fld-label">Notes (optional)</label>
-    <textarea id="f-notes" placeholder="Any extra context, links, or reminders…" rows="2"></textarea>
+    <textarea id="f-notes" placeholder="Any extra context, links, or reminders…" rows="2"></textarea><label class="fld-label" style="margin-top:16px">Attachments (optional)</label><div id="tf-form-drop" ondragover="tfDragOver(event)" ondragleave="tfDragLeave(event)" ondrop="tfFormDropHandler(event)" onclick="tfPickForm()" style="border:1.5px dashed var(--border);border-radius:10px;padding:12px;text-align:center;font-size:12px;color:var(--text-muted);cursor:pointer;margin-top:4px">Drag files here or click to choose</div><div id="tf-form-list" style="margin-top:6px"></div><input id="tf-form-input" type="file" multiple style="display:none" onchange="tfFormInputChange(event)">
     <label class="fld-label" style="margin-top:16px">Recurring</label>
     <div class="recur-toggle-row" onclick="toggleRecurField()">
       <span class="recur-toggle-label">
@@ -1364,7 +1364,7 @@ function forceSelect(segId, val) {
    ADD / EDIT TASKS
 ══════════════════════════════════════════ */
 function openAdd(preAssign) {
-  editId = null;
+  editId = null; try{tfResetForm();}catch(e){}
   var _at=document.getElementById('add-title'); if(_at) _at.textContent='New action';
   var ft=document.getElementById('f-text'); if(ft) ft.value='';
   var fd=document.getElementById('f-due'); if(fd) fd.value='';
@@ -1456,7 +1456,7 @@ function saveTask() {
       }
       toast('Action updated');
     } else {
-      var newTask = {id:uid(), text:text, ctx:ctx, prio:prio, due:due, assign:assign, notes:notes, done:false, created:Date.now()};
+      var newTask = {id:uid(), text:text, ctx:ctx, prio:prio, due:due, assign:assign, notes:notes, done:false, created:Date.now()}; if(tfFormFiles.length){ var _tfq=tfFormFiles.slice(); tfResetForm(); setTimeout(function(){ tfFlushForm(newTask.id,_tfq); },60); }
       if(assignEmail) newTask.assignEmail = assignEmail;
       if(recurDays) { newTask.recurDays = recurDays; newTask.isRecurring = true; }
       if(recurMonthly) { newTask.recurMonthly = recurMonthly; newTask.isRecurring = true; }
@@ -1526,7 +1526,7 @@ function openDetail(id) {
         </select>
       </div>
     </div>
-    ${t.notes ? `<div style="margin-top:12px;padding:12px;background:var(--maxa-white);border-radius:var(--radius-md)"><div style="font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.07em;margin-bottom:6px">Notes</div><div style="font-size:13px;color:var(--text-primary);line-height:1.6">${esc(t.notes).replace(/(https?:\/\/[^\s]+)/g,'<a href="$1" target="_blank" rel="noopener" style="color:#2563eb;text-decoration:underline">$1</a>').replace(/\n/g,'<br>')}</div></div>` : ''}
+    ${t.notes ? `<div style="margin-top:12px;padding:12px;background:var(--maxa-white);border-radius:var(--radius-md)"><div style="font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.07em;margin-bottom:6px">Notes</div><div style="font-size:13px;color:var(--text-primary);line-height:1.6">${esc(t.notes).replace(/(https?:\/\/[^\s]+)/g,'<a href="$1" target="_blank" rel="noopener" style="color:#2563eb;text-decoration:underline">$1</a>').replace(/\n/g,'<br>')}</div></div>` : ''}${tfRenderAttach(t)}
     <details style="margin-top:12px">
       <summary style="font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.07em;cursor:pointer;user-select:none;list-style:none;display:flex;align-items:center;gap:5px;padding:2px 0">
         <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="flex-shrink:0"><polyline points="9 18 15 12 9 6"/></svg>
@@ -3976,6 +3976,73 @@ function setSyncDot(state) {
   if(btn) btn.title = state==='ok'?'Synced':state==='error'?'Sync error — tap to retry':state==='syncing'?'Syncing…':'Sync';
   var lbl = document.getElementById('sb-sync-label');
   if(lbl) lbl.textContent = state==='ok'?'Synced ✓':state==='error'?'Sync error':'Sync';
+}
+
+
+/* ===== Task file attachments (Supabase Storage, private) ===== */
+var TF_BUCKET='task-files';
+var tfFormFiles=[];
+async function tfAuthHeaders(){ var _t=await ensureAuthToken(); if(!_t) throw new Error('Not signed in'); return {'apikey':SUPA_KEY,'Authorization':'Bearer '+_t}; }
+function tfSafeName(n){ return String(n||'file').replace(/[^\w.\-]+/g,'_').slice(0,120); }
+function tfEncPath(p){ return p.split('/').map(encodeURIComponent).join('/'); }
+async function tfUpload(file, taskId){
+  var h=await tfAuthHeaders(); h['x-upsert']='true';
+  var path=taskId+'/'+Date.now()+'_'+tfSafeName(file.name);
+  var res=await fetch(SUPA_URL+'/storage/v1/object/'+TF_BUCKET+'/'+tfEncPath(path),{method:'POST',headers:h,body:file});
+  if(!res.ok){ throw new Error('Upload failed ('+res.status+'): '+(await res.text()).slice(0,140)); }
+  return {name:file.name, path:path, size:file.size, type:file.type||''};
+}
+async function tfOpen(taskId, path){
+  try{
+    var h=await tfAuthHeaders(); h['Content-Type']='application/json';
+    var res=await fetch(SUPA_URL+'/storage/v1/object/sign/'+TF_BUCKET+'/'+tfEncPath(path),{method:'POST',headers:h,body:JSON.stringify({expiresIn:3600})});
+    if(!res.ok){ toast('Could not open file'); return; }
+    var j=await res.json();
+    window.open(SUPA_URL+'/storage/v1'+j.signedURL,'_blank');
+  }catch(e){ toast('Could not open file'); }
+}
+async function tfDropExisting(ev, taskId){
+  ev.preventDefault(); tfDragLeave(ev);
+  var files=ev.dataTransfer?ev.dataTransfer.files:null; if(!files||!files.length) return;
+  var t=tasks.find(function(x){return x.id===taskId;}); if(!t) return;
+  if(!t.attachments) t.attachments=[];
+  toast('Uploading '+files.length+' file'+(files.length>1?'s':'')+'…');
+  for(var i=0;i<files.length;i++){ try{ var m=await tfUpload(files[i],taskId); t.attachments.push(m); }catch(e){ toast(e.message); } }
+  t.modified=Date.now(); saveTasks(); try{ syncPush(); }catch(e){}
+  openDetail(taskId); toast('Attached');
+}
+async function tfRemoveAtt(taskId, path){
+  var t=tasks.find(function(x){return x.id===taskId;}); if(!t||!t.attachments) return;
+  try{ var h=await tfAuthHeaders(); await fetch(SUPA_URL+'/storage/v1/object/'+TF_BUCKET+'/'+tfEncPath(path),{method:'DELETE',headers:h}); }catch(e){}
+  t.attachments=t.attachments.filter(function(a){return a.path!==path;});
+  t.modified=Date.now(); saveTasks(); try{ syncPush(); }catch(e){}
+  openDetail(taskId);
+}
+function tfDragOver(ev){ ev.preventDefault(); if(ev.currentTarget&&ev.currentTarget.style) ev.currentTarget.style.borderColor='#E0B400'; }
+function tfDragLeave(ev){ if(ev.currentTarget&&ev.currentTarget.style) ev.currentTarget.style.borderColor='var(--border)'; }
+function tfFmtSize(b){ b=b||0; return b<1024?b+' B':b<1048576?(b/1024).toFixed(0)+' KB':(b/1048576).toFixed(1)+' MB'; }
+function tfRenderAttach(t){
+  var items=(t.attachments||[]).map(function(a){
+    return '<div style="display:flex;align-items:center;gap:8px;padding:6px 8px;background:var(--maxa-white,#fff);border:1px solid var(--border);border-radius:8px;margin-bottom:6px;font-size:13px">'
+      +'<span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"><a href="#" onclick="tfOpen(\''+t.id+'\',\''+a.path+'\');return false;" style="color:#2563eb;text-decoration:underline">'+esc(a.name)+'</a> <span style="color:var(--text-muted);font-size:11px">'+tfFmtSize(a.size)+'</span></span>'
+      +'<span onclick="tfRemoveAtt(\''+t.id+'\',\''+a.path+'\')" style="cursor:pointer;color:var(--text-muted);font-size:15px;line-height:1">×</span></div>';
+  }).join('');
+  return '<div style="margin-top:12px"><div style="font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.07em;margin-bottom:6px">Attachments</div>'
+    +items
+    +'<div ondragover="tfDragOver(event)" ondragleave="tfDragLeave(event)" ondrop="tfDropExisting(event,\''+t.id+'\')" style="border:1.5px dashed var(--border);border-radius:10px;padding:12px;text-align:center;font-size:12px;color:var(--text-muted)">Drag files here to attach</div></div>';
+}
+function tfFormRenderList(){ var el=document.getElementById('tf-form-list'); if(!el) return; el.innerHTML=tfFormFiles.map(function(f,i){ return '<div style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-primary);padding:2px 0"><span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(f.name)+'</span><span onclick="tfFormRemove('+i+')" style="cursor:pointer;color:var(--text-muted)">×</span></div>'; }).join(''); }
+function tfFormRemove(i){ tfFormFiles.splice(i,1); tfFormRenderList(); }
+function tfFormAdd(files){ for(var i=0;i<files.length;i++) tfFormFiles.push(files[i]); tfFormRenderList(); }
+function tfFormDropHandler(ev){ ev.preventDefault(); tfDragLeave(ev); if(ev.dataTransfer&&ev.dataTransfer.files) tfFormAdd(ev.dataTransfer.files); }
+function tfPickForm(){ var el=document.getElementById('tf-form-input'); if(el) el.click(); }
+function tfFormInputChange(ev){ if(ev.target.files) tfFormAdd(ev.target.files); ev.target.value=''; }
+function tfResetForm(){ tfFormFiles=[]; var el=document.getElementById('tf-form-list'); if(el) el.innerHTML=''; }
+async function tfFlushForm(taskId, queued){
+  var t=tasks.find(function(x){return x.id===taskId;}); if(!t) return;
+  if(!t.attachments) t.attachments=[];
+  for(var i=0;i<queued.length;i++){ try{ var m=await tfUpload(queued[i],taskId); t.attachments.push(m); }catch(e){ toast(e.message); } }
+  t.modified=Date.now(); saveTasks(); try{ syncPush(); }catch(e){} try{ render(true); }catch(e){}
 }
 
 async function supaFetch(method, table, body, deleteId) {
